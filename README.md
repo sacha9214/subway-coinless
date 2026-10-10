@@ -1,6 +1,6 @@
 # Subway Surfers no-coin planner
 
-A search that finds ten-minute Subway Surfers runs with **0 coins** picked up, on a deterministic Rust port of the web game: see **[NOCOIN.md](NOCOIN.md)**, or **[watch the runs in your browser](https://sacha9214.github.io/subway-nocoin/)**.
+A search that finds twenty-minute Subway Surfers runs with **0 coins** picked up, on a deterministic Rust port of the web game: see **[NOCOIN.md](NOCOIN.md)**, or **[watch the runs in your browser](https://sacha9214.github.io/subway-nocoin/)**.
 
 The port itself is [zebmeow/SubwaySurfers](https://github.com/zebmeow/SubwaySurfers); its README follows.
 

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Subway Surfers, ten minutes, zero coins</title>
-<meta name="description" content="Watch a search algorithm run Subway Surfers for ten minutes without touching a single coin.">
+<title>Subway Surfers, twenty minutes, zero coins</title>
+<meta name="description" content="Watch a search algorithm run Subway Surfers for twenty minutes without touching a single coin.">
 <style>
   :root { --bg: #0e1116; --panel: #171b22; --line: #2a303a; --text: #e8ebf0; --dim: #9aa4b2; --accent: #ffc83d; }
   * { box-sizing: border-box; }
@@ -29,7 +29,7 @@
   .bar a:hover { border-color: var(--dim); }
   .bar a.on { border-color: var(--accent); color: var(--accent); }
   h2 { font-size: 1.1rem; margin: 26px 0 8px; }
-  table { border-collapse: collapse; width: 100%; max-width: 520px; font-variant-numeric: tabular-nums; }
+  table { border-collapse: collapse; width: 100%; max-width: 600px; font-variant-numeric: tabular-nums; }
   th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--line); }
   th:first-child, td:first-child { text-align: left; }
   th { color: var(--dim); font-weight: 500; }
@@ -40,8 +40,8 @@
 </head>
 <body>
 <main>
-  <h1>Subway Surfers: ten minutes, <b>zero coins</b></h1>
-  <p class="lead">A search algorithm plays this run. Watch the coin counter in the top right corner: it stays at 0 for the whole ten minutes.</p>
+  <h1>Subway Surfers: twenty minutes, <b>zero coins</b></h1>
+  <p class="lead">A search algorithm plays this run. Watch the coin counter in the top right corner: it stays at 0 for the whole run. Pause, skip around or speed it up like a video.</p>
 
   <div class="stage">
     <canvas id="game"></canvas>
@@ -74,18 +74,18 @@
 
   <h2>The four runs</h2>
   <table>
-    <tr><th>Seed</th><th>Coins</th><th>Score</th><th>Key presses</th><th>Stumbles</th></tr>
-    <tr><td>1</td><td>0</td><td>12494</td><td>429</td><td>2</td></tr>
-    <tr><td>2</td><td>0</td><td>12146</td><td>450</td><td>7</td></tr>
-    <tr><td>3</td><td>0</td><td>12650</td><td>455</td><td>3</td></tr>
-    <tr><td>4</td><td>0</td><td>12697</td><td>428</td><td>3</td></tr>
+    <tr><th>Seed</th><th>Length</th><th>Coins</th><th>Score</th><th>Key presses</th><th>Stumbles</th></tr>
+    <tr><td>1</td><td>10 min</td><td>0</td><td>12494</td><td>429</td><td>2</td></tr>
+    <tr><td>2</td><td>20 min</td><td>0</td><td>25947</td><td>934</td><td>11</td></tr>
+    <tr><td>3</td><td>20 min</td><td>0</td><td>25911</td><td>937</td><td>6</td></tr>
+    <tr><td>4</td><td>10 min</td><td>0</td><td>12697</td><td>428</td><td>3</td></tr>
   </table>
 
   <h2>How it plays</h2>
   <div class="text">
     <p>Nothing here is learned and nothing looks at the screen. The game on this page is a Rust port of the web version whose simulation is deterministic: the same seed and the same key presses always give the same run.</p>
-    <p>So the planner searches the game itself. Every 4 frames it takes every position the run could be in and tries each key: nothing, left, right, jump, roll. Anything that crashes or touches a coin is thrown away. What survives ten minutes is a list of key presses, and this page replays that list.</p>
-    <p>After the ten minutes the keys stop, so the run ends in a crash a moment later.</p>
+    <p>So the planner searches the game itself. Every 4 frames it takes every position the run could be in and tries each key: nothing, left, right, jump, roll. Anything that crashes or touches a coin is thrown away. What survives to the end is a list of key presses, and this page replays that list.</p>
+    <p>When the list ends the keys stop, so the run ends in a crash a moment later.</p>
     <p>Code and details: <a href="https://github.com/sacha9214/subway-nocoin">github.com/sacha9214/subway-nocoin</a>.</p>
   </div>
 

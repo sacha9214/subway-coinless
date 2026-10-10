@@ -8,16 +8,16 @@ The port's simulation is deterministic: a seed and the key presses give the run.
 
 ## Results
 
-Ten-minute runs with 0 coins, checked by replaying the keys through the game's own driver (`--check`):
+Runs with 0 coins, checked by replaying the keys through the game's own driver (`--check`):
 
-| Seed | Coins | Score | Key presses | Stumbles |
-|---|---|---|---|---|
-| 1 | 0 | 12494 | 429 | 2 |
-| 2 | 0 | 12146 | 450 | 7 |
-| 3 | 0 | 12650 | 455 | 3 |
-| 4 | 0 | 12697 | 428 | 3 |
+| Seed | Length | Coins | Score | Key presses | Stumbles |
+|---|---|---|---|---|---|
+| 1 | 10 min | 0 | 12494 | 429 | 2 |
+| 2 | 20 min | 0 | 25947 | 934 | 11 |
+| 3 | 20 min | 0 | 25911 | 937 | 6 |
+| 4 | 10 min | 0 | 12697 | 428 | 3 |
 
-The keys are in `runs/`. A ten-minute search takes about 5 minutes on a MacBook Air M3.
+The keys are in `runs/`. A ten-minute run takes about 5 minutes of search on a MacBook Air M3 (longer when it meets a dead end and has to widen).
 
 ## Use
 
