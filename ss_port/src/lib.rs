@@ -39,6 +39,7 @@ pub mod sim_plugin;
 pub mod theme;
 pub mod library;
 pub mod pk;
+pub mod playback;
 pub mod render;
 pub mod render_actors;
 pub mod render_fx;

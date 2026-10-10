@@ -4803,6 +4803,7 @@ dependencies = [
  "serde",
  "serde_json",
  "ttf-parser",
+ "wasm-bindgen",
  "web-sys",
  "winit",
 ]

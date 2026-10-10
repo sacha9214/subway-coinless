@@ -34,9 +34,15 @@ def main():
         for p in walk(os.path.join(PORT, sub)):
             entries.append(("/port/" + os.path.relpath(p, PORT), p))
     entries.append(("/port/assets/icon/icon.png", os.path.join(PORT, "assets/icon/icon.png")))
+    # one run per seed: the longest (seedN-20min.keys over seedN-10min.keys)
+    runs = {}
     for p in walk(os.path.join(ROOT, "runs")):
-        if p.endswith(".keys"):
-            entries.append(("/port/runs/" + os.path.basename(p), p))
+        if p.endswith(".keys") and "complete true" in open(p).readline():
+            seed, minutes = os.path.basename(p)[:-len("min.keys")].split("-")
+            if int(minutes) > runs.get(seed, (0, ""))[0]:
+                runs[seed] = (int(minutes), p)
+    for seed, (_, p) in sorted(runs.items()):
+        entries.append((f"/port/runs/{seed}.keys", p))
     out = os.path.join(PORT, "web/pack.bin")
     with open(out, "wb") as f:
         for name, p in entries:

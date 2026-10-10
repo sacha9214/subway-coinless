@@ -105,6 +105,32 @@ struct Args {
     debug_hud: bool,
 }
 
+/// The page's playback controls (the web build's exports).
+#[cfg(target_arch = "wasm32")]
+mod web {
+    use ss_port::playback::*;
+    use std::sync::atomic::Ordering::Relaxed;
+    use wasm_bindgen::prelude::*;
+
+    #[wasm_bindgen]
+    pub fn set_speed(factor: f32) {
+        SPEED.store((factor * 100.0) as u32, Relaxed);
+    }
+    #[wasm_bindgen]
+    pub fn set_paused(paused: bool) {
+        PAUSED.store(paused, Relaxed);
+    }
+    #[wasm_bindgen]
+    pub fn seek(frame: f64) {
+        SEEK.store(frame as i64, Relaxed);
+    }
+    /// [frame, first, last].
+    #[wasm_bindgen]
+    pub fn progress() -> Vec<f64> {
+        vec![FRAME.load(Relaxed) as f64, FIRST.load(Relaxed) as f64, LAST.load(Relaxed) as f64]
+    }
+}
+
 /// The command line. The web build has none: it plays one of the no-coin
 /// planner's runs, picked by the page's `?seed=N`.
 fn command_line() -> Vec<String> {
@@ -114,7 +140,7 @@ fn command_line() -> Vec<String> {
         let seed: u32 = query.split("seed=").nth(1).map(|v| v.chars().take_while(char::is_ascii_digit).collect::<String>()).and_then(|v| v.parse().ok()).unwrap_or(2);
         // silent unless the page asks for sound (`?sound=1`)
         let sound = if query.contains("sound=1") { "--sound" } else { "--mute" };
-        return ["ss_port", "--vsync", sound, "--keys", &format!("/port/runs/seed{seed}-10min.keys")].map(String::from).to_vec();
+        return ["ss_port", "--vsync", sound, "--keys", &format!("/port/runs/seed{seed}.keys")].map(String::from).to_vec();
     }
     #[cfg(not(target_arch = "wasm32"))]
     std::env::args().collect()
@@ -423,6 +449,9 @@ fn build_sim_at(paths: &DataPaths, args: &Args, start: bool) -> (Sim, KeyQueue) 
         None => match &args.keys {
             Some(path) => {
                 let driver = ss_port::sim_plugin::KeysDriver::load(path).expect("load keys");
+                // the run's span, for the playback bar (the run starts at frame 6)
+                ss_port::playback::FIRST.store(6, std::sync::atomic::Ordering::Relaxed);
+                ss_port::playback::LAST.store(5 + driver.frames.unwrap_or(0), std::sync::atomic::Ordering::Relaxed);
                 (driver.seed.unwrap_or(args.seed), args.letter.clone(), Box::new(driver))
             }
             None => (args.seed, args.letter.clone(), Box::new(keys.clone())),
@@ -570,6 +599,7 @@ fn main() {
     .init_resource::<Clock>()
     .insert_non_send(sim)
     .insert_non_send(Keys(keys))
+    .insert_non_send(ss_port::playback::Snapshots::default())
     .insert_non_send(paths)
     .add_plugins((SceneRenderPlugin, ss_port::ui::UiPlugin, ss_port::render_menu_3d::MenuStagePlugin, ss_port::render_fx::FxRenderPlugin, bevy::diagnostic::FrameTimeDiagnosticsPlugin::default()))
     .add_systems(Startup, setup)
@@ -692,6 +722,26 @@ fn read_keys(
         sim.game.to_game();
         return;
     }
+    if args.keys.is_some() {
+        // a keys file plays like a video: Space pauses, Left / Right go back
+        // and forward 10 s, Up / Down double and halve the speed
+        use ss_port::playback::{FRAME, PAUSED, SEEK, SPEED};
+        use std::sync::atomic::Ordering::Relaxed;
+        if input.just_pressed(KeyCode::Space) {
+            PAUSED.fetch_xor(true, Relaxed);
+        }
+        for (key, by) in [(KeyCode::ArrowLeft, -600), (KeyCode::ArrowRight, 600)] {
+            if input.just_pressed(key) {
+                SEEK.store((FRAME.load(Relaxed) + by).max(0), Relaxed);
+            }
+        }
+        if input.just_pressed(KeyCode::ArrowUp) {
+            SPEED.store((SPEED.load(Relaxed) * 2).min(1600), Relaxed);
+        }
+        if input.just_pressed(KeyCode::ArrowDown) {
+            SPEED.store((SPEED.load(Relaxed) / 2).max(25), Relaxed);
+        }
+    }
     if args.scripted() {
         return;
     }
@@ -797,6 +847,7 @@ fn step_sim(
     mut keys: NonSendMut<Keys>,
     mut blend: ResMut<ss_port::render::RenderBlend>,
     mut dump: ResMut<DumpState>,
+    mut snapshots: NonSendMut<ss_port::playback::Snapshots>,
 ) {
     // (results PLAY / Menu and the pause panel reset the game in place)
     let _ = &paths;
@@ -821,10 +872,25 @@ fn step_sim(
         rebuild_with_seed(&mut sim, &mut keys, &paths, &mut args, seed);
         info!("[Seed] Restart with seed {seed}");
     }
-    clock.acc = (clock.acc + time.delta_secs()).min(0.25);
+    // a keys file plays like a video: speed, pause, seeking (`ss_port::playback`)
+    let mut speed = 1.0;
+    if args.keys.is_some() {
+        use std::sync::atomic::Ordering::Relaxed;
+        let seek = ss_port::playback::SEEK.swap(-1, Relaxed);
+        if seek >= 0 {
+            snapshots.seek(&mut sim, seek);
+            clock.acc = 0.0;
+        }
+        speed = ss_port::playback::speed();
+        ss_port::playback::FRAME.store(sim.next_frame, Relaxed);
+    }
+    clock.acc = (clock.acc + time.delta_secs() * speed).min(0.25 * speed.max(1.0));
     while clock.acc >= 1.0 / 60.0 {
         clock.acc -= 1.0 / 60.0;
         if !sim.finished {
+            if args.keys.is_some() {
+                snapshots.keep(&sim);
+            }
             sim.step();
         }
     }

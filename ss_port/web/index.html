@@ -18,6 +18,11 @@
   .stage canvas { display: block; width: 100%; height: 100%; outline: none; }
   #status { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--dim); background: #000; }
   #status.hidden { display: none; }
+  .player { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+  .player button, .player select { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  .player button:hover, .player select:hover { border-color: var(--dim); }
+  .player input { flex: 1 1 180px; min-width: 120px; accent-color: var(--accent); }
+  .player span { color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 26px; }
   .bar span { color: var(--dim); margin-right: 4px; }
   .bar a { color: var(--text); text-decoration: none; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 14px; }
@@ -43,13 +48,27 @@
     <div id="status">Loading the game (about 40 MB)…</div>
   </div>
 
+  <div class="player">
+    <button id="back" title="Back 10 seconds">&minus;10 s</button>
+    <button id="pause" title="Pause or play">Pause</button>
+    <button id="fwd" title="Forward 10 seconds">+10 s</button>
+    <input id="bar" type="range" min="0" max="1" value="0" step="1" aria-label="Position in the run">
+    <span id="time">0:00 / 0:00</span>
+    <select id="speed" aria-label="Speed">
+      <option value="0.5">0.5&times;</option>
+      <option value="1" selected>1&times;</option>
+      <option value="2">2&times;</option>
+      <option value="4">4&times;</option>
+      <option value="8">8&times;</option>
+    </select>
+  </div>
+
   <div class="bar">
     <span>Run:</span>
     <a href="?seed=1" data-seed="1">Seed 1</a>
     <a href="?seed=2" data-seed="2">Seed 2</a>
     <a href="?seed=3" data-seed="3">Seed 3</a>
     <a href="?seed=4" data-seed="4">Seed 4</a>
-    <a href="" id="again">Restart</a>
     <a href="" id="sound">Sound: off</a>
   </div>
 
@@ -79,20 +98,51 @@
   const sound = new URLSearchParams(location.search).get("sound") === "1";
   const query = (s, snd) => "?seed=" + s + (snd ? "&sound=1" : "");
   for (const a of document.querySelectorAll("[data-seed]")) a.href = query(a.dataset.seed, sound);
-  document.getElementById("again").href = query(seed, sound);
   const toggle = document.getElementById("sound");
   toggle.textContent = "Sound: " + (sound ? "on" : "off");
   toggle.classList.toggle("on", sound);
   toggle.href = query(seed, !sound);
   const status = document.getElementById("status");
-  import("./game.js")
-    .then((m) => m.default())
-    .catch((e) => {
-      // the engine leaves its start-up through an exception: that one is not a failure
-      if (String(e).includes("Using exceptions for control flow")) return;
-      status.classList.remove("hidden");
-      status.textContent = "The game could not start in this browser: " + e;
-    });
+  const game = await import("./game.js");
+  game.default().catch((e) => {
+    // the engine leaves its start-up through an exception: that one is not a failure
+    if (String(e).includes("Using exceptions for control flow")) return;
+    status.classList.remove("hidden");
+    status.textContent = "The game could not start in this browser: " + e;
+  });
+
+  // video-style controls: the run is deterministic, so any moment can be reached again
+  const $ = (id) => document.getElementById(id);
+  const clock = (frames) => {
+    const s = Math.max(0, Math.floor(frames / 60));
+    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  };
+  let paused = false, dragging = false;
+  const state = () => { try { return game.progress(); } catch { return null; } };
+  const seekBy = (frames) => { const p = state(); if (p) game.seek(Math.min(Math.max(p[0] + frames, p[1]), p[2])); };
+  $("back").onclick = () => seekBy(-600);
+  $("fwd").onclick = () => seekBy(600);
+  $("pause").onclick = () => { paused = !paused; game.set_paused(paused); $("pause").textContent = paused ? "Play" : "Pause"; };
+  $("speed").onchange = () => game.set_speed(Number($("speed").value));
+  $("bar").oninput = () => { dragging = true; };
+  $("bar").onchange = () => { const p = state(); if (p) game.seek(p[1] + Number($("bar").value)); dragging = false; };
+  addEventListener("keydown", (e) => {
+    if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+    if (e.key === "ArrowLeft") seekBy(-600);
+    else if (e.key === "ArrowRight") seekBy(600);
+    else if (e.key === " ") $("pause").click();
+    else return;
+    e.preventDefault();
+  });
+  setInterval(() => {
+    const p = state();
+    if (!p || p[2] <= p[1]) return;
+    const [frame, first, last] = p;
+    $("bar").max = last - first;
+    if (!dragging) $("bar").value = Math.min(frame - first, last - first);
+    $("time").textContent = clock(Math.min(frame, last) - first) + " / " + clock(last - first);
+  }, 250);
+
   // the engine sizes the canvas once it draws
   const shown = setInterval(() => {
     if (document.getElementById("game").width > 300) {

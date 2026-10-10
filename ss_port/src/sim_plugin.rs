@@ -110,6 +110,8 @@ impl Driver for KeyQueue {
 /// press, `#` comments; the first line holds the seed (`# seed N ...`).
 pub struct KeysDriver {
     pub seed: Option<i32>,
+    /// Frames of the run (`# seed N first F frames N ...`).
+    pub frames: Option<i64>,
     keys: HashMap<i64, Vec<Key>>,
 }
 
@@ -117,11 +119,14 @@ impl KeysDriver {
     pub fn load(path: &Path) -> Result<Self, String> {
         let text = crate::vfs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
         let mut keys: HashMap<i64, Vec<Key>> = HashMap::new();
-        let mut seed = None;
+        let (mut seed, mut frames) = (None, None);
         for line in text.lines() {
             let w: Vec<&str> = line.split_whitespace().collect();
             match w.as_slice() {
-                ["#", "seed", n, ..] => seed = n.parse().ok(),
+                ["#", "seed", n, rest @ ..] => {
+                    seed = n.parse().ok();
+                    frames = rest.iter().position(|w| *w == "frames").and_then(|i| rest.get(i + 1)).and_then(|v| v.parse().ok());
+                }
                 [f, k] if !f.starts_with('#') => {
                     let key = match *k {
                         "left" => Key::Left,
@@ -135,7 +140,7 @@ impl KeysDriver {
                 _ => {}
             }
         }
-        Ok(Self { seed, keys })
+        Ok(Self { seed, frames, keys })
     }
 }
 
@@ -144,7 +149,8 @@ impl Driver for KeysDriver {
         None
     }
     fn input(&mut self, f: i64) -> FrameInput {
-        FrameInput { keys: self.keys.remove(&f).unwrap_or_default(), nav: Vec::new() }
+        // (not consumed: seeking back plays a frame again)
+        FrameInput { keys: self.keys.get(&f).cloned().unwrap_or_default(), nav: Vec::new() }
     }
 }
 
@@ -235,6 +241,16 @@ impl Sim {
         for (id, pe) in self.driver.spawn_ids(frame).into_iter().zip(new) {
             self.ids.insert(id, pe);
         }
+    }
+
+    /// Replace the game by a copy taken before frame `next_frame`
+    /// (`crate::playback`): a new simulation for the renderer.
+    pub fn restore(&mut self, game: Game, next_frame: i64) {
+        self.game = game;
+        self.next_frame = next_frame;
+        self.finished = false;
+        self.log_cursor = self.game.log.len();
+        self.serial = SIM_SERIAL.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// `nav.toGame()`: close the menus and run with the intro.

@@ -23,6 +23,7 @@ winit = { version = "0.30", default-features = false }
 # the web build (`web/`): the wall clock and the page's query string
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3"
+wasm-bindgen = "=0.2.129"
 web-sys = { version = "0.3", features = ["Window", "Location"] }
 
 [build-dependencies]
