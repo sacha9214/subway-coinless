@@ -42,7 +42,7 @@ pub struct Day(pub i64);
 
 impl Day {
     pub fn today() -> Self {
-        let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+        let secs = crate::vfs::now_secs() as i64;
         Day(secs.div_euclid(86400))
     }
     /// `Ta()`: 0 = Monday .. 6 = Sunday (1970-01-01 was a Thursday).

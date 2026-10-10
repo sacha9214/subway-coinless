@@ -107,7 +107,7 @@ pub(crate) fn measure(font: UiFont, size: f32, text: &str) -> f32 {
     static T: std::sync::OnceLock<(Adv, Adv)> = std::sync::OnceLock::new();
     let (lilita, titan) = T.get_or_init(|| {
         let load = |name: &str| -> Adv {
-            let Ok(bytes) = std::fs::read(crate::install::Install::locate().port.join("assets/fonts").join(name)) else { return Map::new() };
+            let Ok(bytes) = crate::vfs::read(crate::install::Install::locate().port.join("assets/fonts").join(name)) else { return Map::new() };
             let Ok(face) = ttf_parser::Face::parse(&bytes, 0) else { return Map::new() };
             let upem = face.units_per_em() as f32;
             (' '..='~')
@@ -159,7 +159,7 @@ fn load_assets(mut ui: ResMut<UiAssets>, assets: Res<AssetServer>, mut fonts: Re
             s.sampler = ImageSampler::linear();
         })
         .load("assets/ui/ui.webp");
-    if let Ok(text) = std::fs::read_to_string(inst.site.join("assets/ui/ui.webp.json")) {
+    if let Ok(text) = crate::vfs::read_to_string(inst.site.join("assets/ui/ui.webp.json")) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
             for (name, f) in v["frames"].as_object().into_iter().flatten() {
                 let r = &f["frame"];
@@ -168,7 +168,7 @@ fn load_assets(mut ui: ResMut<UiAssets>, assets: Res<AssetServer>, mut fonts: Re
             }
         }
     }
-    let font = |name: &str| std::fs::read(inst.port.join("assets/fonts").join(name)).ok().and_then(|b| Some(Font::from_bytes(b)));
+    let font = |name: &str| crate::vfs::read(inst.port.join("assets/fonts").join(name)).ok().and_then(|b| Some(Font::from_bytes(b)));
     if let Some(f) = font("lilita-one.ttf") {
         ui.lilita = fonts.add(f);
     }
@@ -194,12 +194,11 @@ fn load_assets(mut ui: ResMut<UiAssets>, assets: Res<AssetServer>, mut fonts: Re
             .load(format!("assets/character-previews/preview-{id}.webp"));
         ui.thumbs.insert(format!("preview-{id}"), h);
     }
-    if let Ok(dir) = std::fs::read_dir(inst.port.join("assets/ui/thumbs")) {
+    {
         use bevy::image::{CompressedImageFormats, ImageType};
-        for e in dir.flatten() {
-            let path = e.path();
+        for path in crate::vfs::list(inst.port.join("assets/ui/thumbs")) {
             let Some(name) = path.file_stem().and_then(|n| n.to_str()).map(str::to_string) else { continue };
-            let Ok(bytes) = std::fs::read(&path) else { continue };
+            let Ok(bytes) = crate::vfs::read(&path) else { continue };
             if let Ok(img) = Image::from_buffer(&bytes, ImageType::Extension("png"), CompressedImageFormats::NONE, false, ImageSampler::linear(), bevy::asset::RenderAssetUsages::default()) {
                 ui.thumbs.insert(name, images.add(img));
             }

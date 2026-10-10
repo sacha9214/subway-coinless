@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subway Surfers, ten minutes, zero coins</title>
+<meta name="description" content="Watch a search algorithm run Subway Surfers for ten minutes without touching a single coin.">
+<style>
+  :root { --bg: #0e1116; --panel: #171b22; --line: #2a303a; --text: #e8ebf0; --dim: #9aa4b2; --accent: #ffc83d; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1000px; margin: 0 auto; padding: 28px 16px 48px; }
+  h1 { font-size: clamp(1.5rem, 4vw, 2.2rem); line-height: 1.15; margin: 0 0 6px; }
+  h1 b { color: var(--accent); }
+  p { margin: 0 0 14px; }
+  .lead { color: var(--dim); max-width: 62ch; }
+  .stage { position: relative; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 20px 0 12px; }
+  .stage canvas { display: block; width: 100%; height: 100%; outline: none; }
+  #status { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--dim); background: #000; }
+  #status.hidden { display: none; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 26px; }
+  .bar span { color: var(--dim); margin-right: 4px; }
+  .bar a { color: var(--text); text-decoration: none; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 14px; }
+  .bar a:hover { border-color: var(--dim); }
+  .bar a.on { border-color: var(--accent); color: var(--accent); }
+  h2 { font-size: 1.1rem; margin: 26px 0 8px; }
+  table { border-collapse: collapse; width: 100%; max-width: 520px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--dim); font-weight: 500; }
+  .text { max-width: 68ch; }
+  a { color: var(--accent); }
+  footer { color: var(--dim); font-size: 0.9rem; margin-top: 34px; max-width: 68ch; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Subway Surfers: ten minutes, <b>zero coins</b></h1>
+  <p class="lead">A search algorithm plays this run. Watch the coin counter in the top right corner: it stays at 0 for the whole ten minutes.</p>
+
+  <div class="stage">
+    <canvas id="game"></canvas>
+    <div id="status">Loading the game (about 40 MB)…</div>
+  </div>
+
+  <div class="bar">
+    <span>Run:</span>
+    <a href="?seed=1" data-seed="1">Seed 1</a>
+    <a href="?seed=2" data-seed="2">Seed 2</a>
+    <a href="?seed=3" data-seed="3">Seed 3</a>
+    <a href="?seed=4" data-seed="4">Seed 4</a>
+    <a href="" id="again">Restart</a>
+    <a href="" id="sound">Sound: off</a>
+  </div>
+
+  <h2>The four runs</h2>
+  <table>
+    <tr><th>Seed</th><th>Coins</th><th>Score</th><th>Key presses</th><th>Stumbles</th></tr>
+    <tr><td>1</td><td>0</td><td>12494</td><td>429</td><td>2</td></tr>
+    <tr><td>2</td><td>0</td><td>12146</td><td>450</td><td>7</td></tr>
+    <tr><td>3</td><td>0</td><td>12650</td><td>455</td><td>3</td></tr>
+    <tr><td>4</td><td>0</td><td>12697</td><td>428</td><td>3</td></tr>
+  </table>
+
+  <h2>How it plays</h2>
+  <div class="text">
+    <p>Nothing here is learned and nothing looks at the screen. The game on this page is a Rust port of the web version whose simulation is deterministic: the same seed and the same key presses always give the same run.</p>
+    <p>So the planner searches the game itself. Every 4 frames it takes every position the run could be in and tries each key: nothing, left, right, jump, roll. Anything that crashes or touches a coin is thrown away. What survives ten minutes is a list of key presses, and this page replays that list.</p>
+    <p>After the ten minutes the keys stop, so the run ends in a crash a moment later.</p>
+    <p>Code and details: <a href="https://github.com/sacha9214/subway-nocoin">github.com/sacha9214/subway-nocoin</a>.</p>
+  </div>
+
+  <footer>Unofficial fan project, not affiliated with SYBO Games, Kiloo or Poki. Subway Surfers and its artwork are © SYBO Games. The Rust port is by <a href="https://github.com/zebmeow/SubwaySurfers">zebmeow</a>.</footer>
+</main>
+<script type="module">
+  const seed = new URLSearchParams(location.search).get("seed") || "2";
+  for (const a of document.querySelectorAll("[data-seed]")) a.classList.toggle("on", a.dataset.seed === seed);
+  // silent unless asked: the page must not cut in on what the visitor is listening to
+  const sound = new URLSearchParams(location.search).get("sound") === "1";
+  const query = (s, snd) => "?seed=" + s + (snd ? "&sound=1" : "");
+  for (const a of document.querySelectorAll("[data-seed]")) a.href = query(a.dataset.seed, sound);
+  document.getElementById("again").href = query(seed, sound);
+  const toggle = document.getElementById("sound");
+  toggle.textContent = "Sound: " + (sound ? "on" : "off");
+  toggle.classList.toggle("on", sound);
+  toggle.href = query(seed, !sound);
+  const status = document.getElementById("status");
+  import("./game.js")
+    .then((m) => m.default())
+    .catch((e) => {
+      // the engine leaves its start-up through an exception: that one is not a failure
+      if (String(e).includes("Using exceptions for control flow")) return;
+      status.classList.remove("hidden");
+      status.textContent = "The game could not start in this browser: " + e;
+    });
+  // the engine sizes the canvas once it draws
+  const shown = setInterval(() => {
+    if (document.getElementById("game").width > 300) {
+      status.classList.add("hidden");
+      clearInterval(shown);
+    }
+  }, 200);
+</script>
+</body>
+</html>

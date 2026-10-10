@@ -48,7 +48,7 @@ impl ChunkData {
         let mut map = HashMap::new();
         for f in ["chunks-idle.json", "chunks-basic.json", "chunks-full.json"] {
             let p = site_root.join("assets/data").join(f);
-            let text = std::fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))?;
+            let text = crate::vfs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))?;
             let json: Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
             // chunkMap walks {cacheKey: json} with a depth budget of 5.
             let wrapper = serde_json::json!({ f: json });

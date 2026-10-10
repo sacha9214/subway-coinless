@@ -849,7 +849,7 @@ pub(crate) fn word_hunt_section(b: &mut Builder, g: &crate::game::Game) {
     let s = b.s;
     let top = -392.0;
     // day timer `ih` at (208.5, 42.2): "{23-UTCh}h {59-UTCm}m" (wall clock)
-    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) % 86400;
+    let secs = crate::vfs::now_secs() % 86400;
     let (hh, mm) = (23 - secs / 3600, 59 - (secs % 3600) / 60);
     let (tx, ty) = (208.5, top + 42.2);
     let (x, y) = b.c(tx - 73.5, ty - 19.5);

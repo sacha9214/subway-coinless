@@ -125,7 +125,7 @@ fn u16x4(file: &PkFile, v: &Value) -> Vec<[u16; 4]> {
 /// The node tree of any `.pk` scene (`$.library.getScene`), for rigid
 /// models such as the boards: names, local transforms, geometry.
 pub fn scene_nodes(path: &std::path::Path) -> Result<Vec<Node>, String> {
-    let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let bytes = crate::vfs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let file = pk::parse(&bytes)?;
     Ok(parse_nodes(&file))
 }
@@ -179,7 +179,7 @@ impl SkinModel {
     /// Load a skinned `.pk`. `scale` multiplies positions and morph deltas
     /// (0.01 for the shared avatars, `Uo`; 1 for the guard and dog).
     pub fn load(path: &std::path::Path, scale: f32) -> Result<Self, String> {
-        let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let bytes = crate::vfs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
         let file = pk::parse(&bytes)?;
         let m = &file.meta;
         let buf = |v: &Value| v.as_u64().and_then(|i| file.buffers.get(i as usize));

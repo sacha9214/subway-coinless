@@ -1,5 +1,7 @@
 # No-coin planner
 
+**[Watch the runs in your browser](https://sacha9214.github.io/subway-nocoin/)**
+
 A planner that finds runs of Subway Surfers (this Rust port of the web build) in which the hero never picks up a coin.
 
 The port's simulation is deterministic: a seed and the key presses give the run. So the planner needs no vision and no learning. It searches the simulation itself (`ss_port/src/bin/nocoin.rs`).
@@ -10,6 +12,7 @@ Ten-minute runs with 0 coins, checked by replaying the keys through the game's o
 
 | Seed | Coins | Score | Key presses | Stumbles |
 |---|---|---|---|---|
+| 1 | 0 | 12494 | 429 | 2 |
 | 2 | 0 | 12146 | 450 | 7 |
 | 3 | 0 | 12650 | 455 | 3 |
 | 4 | 0 | 12697 | 428 | 3 |
@@ -37,9 +40,14 @@ Every `period` frames each state the run can be in is played with each key (none
 ## Changes to the port
 
 - `Game` is `Clone` (`game.rs`, `rng.rs`), and the scene's objects are shared between copies until written (`scene.rs`): a copy of the game takes 8 µs instead of 35.
-- `ss_port --keys FILE` plays a keys file (`main.rs`, `KeysDriver` in `sim_plugin.rs`).
+- `ss_port --keys FILE` plays a keys file (`main.rs`, `KeysDriver` in `sim_plugin.rs`); `--mute` plays without sound.
+- A web build (`src/vfs.rs`, `web/`, `tools/web_build.sh`, `tools/web_pack.py`).
 
 The port's test suite (trace parity with the original included) passes with these changes.
+
+## The web page
+
+`ss_port/tools/web_build.sh` builds the game as WebAssembly with the four runs inside; the page plays the one picked by `?seed=N`, silent unless `&sound=1`. It needs rustup's `wasm32-unknown-unknown` target, `wasm-bindgen-cli` and `wasm-opt`. File reads go through `src/vfs.rs`, which in the browser serves a pack built into the binary.
 
 ## Limits
 

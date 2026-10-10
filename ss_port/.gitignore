@@ -9,3 +9,4 @@
 # OS / tool clutter
 .DS_Store
 __pycache__/
+/web/pack.bin

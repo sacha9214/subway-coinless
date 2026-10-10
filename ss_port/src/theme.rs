@@ -69,12 +69,10 @@ pub struct ThemeRegistry {
 impl ThemeRegistry {
     /// Scan `dir` for `theme_<id>.json`; `bali` is the default.
     pub fn discover(dir: &std::path::Path) -> Self {
-        let mut available: Vec<String> = std::fs::read_dir(dir)
+        let mut available: Vec<String> = crate::vfs::list(dir)
             .into_iter()
-            .flatten()
-            .flatten()
             .filter_map(|e| {
-                let n = e.file_name().to_string_lossy().to_string();
+                let n = e.file_name()?.to_string_lossy().to_string();
                 n.strip_prefix("theme_").and_then(|r| r.strip_suffix(".json")).map(str::to_string)
             })
             .collect();
@@ -125,7 +123,7 @@ fn parse_def(v: &Value) -> Def {
 
 impl ThemeConfig {
     pub fn load(path: &std::path::Path) -> Result<Self, String> {
-        let v: Value = serde_json::from_str(&std::fs::read_to_string(path).map_err(|e| e.to_string())?)
+        let v: Value = serde_json::from_str(&crate::vfs::read_to_string(path).map_err(|e| e.to_string())?)
             .map_err(|e| e.to_string())?;
         let objs = |k: &str| v[k]["objects"].as_array().into_iter().flatten().map(parse_def).collect();
         let a = &v["atmosphere"];

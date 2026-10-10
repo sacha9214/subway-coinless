@@ -4798,10 +4798,12 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "embed-resource",
+ "js-sys",
  "miniz_oxide 0.8.9",
  "serde",
  "serde_json",
  "ttf-parser",
+ "web-sys",
  "winit",
 ]
 

@@ -197,7 +197,7 @@ impl ClipLib {
             let file = src["file"].as_str().ok_or("anim: source without file")?;
             let fps = src["fps"].as_f64().unwrap_or(24.0);
             let speed = src["speed"].as_f64().filter(|&s| s != 0.0).unwrap_or(DEFAULT_CLIP_SPEED);
-            let bytes = std::fs::read(source_path(site, file)).map_err(|e| format!("anim {file}: {e}"))?;
+            let bytes = crate::vfs::read(source_path(site, file)).map_err(|e| format!("anim {file}: {e}"))?;
             let pkf = pk::parse(&bytes)?;
             let anims = pkf.animations();
             // getMasterAnimation: "Take 001" | "Scene" | first
@@ -727,7 +727,7 @@ impl ActorAssets {
         let jake = SkinModel::load(&a.join("characters-idle/avatar_jake.pk"), 0.01)?;
         let guard = SkinModel::load(&a.join("game-basic/model-guard.pk"), 1.0)?;
         let dog = SkinModel::load(&a.join("game-basic/model-dog.pk"), 1.0)?;
-        let v: Value = serde_json::from_str(&std::fs::read_to_string(clips_json).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+        let v: Value = serde_json::from_str(&crate::vfs::read_to_string(clips_json).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
         let names = |m: &SkinModel| -> HashSet<String> {
             let mut s: HashSet<String> = m.nodes.iter().map(|n| n.name.clone()).collect();
             s.extend(m.meshes.iter().map(|x| x.name.clone()));

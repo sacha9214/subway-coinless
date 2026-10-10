@@ -116,7 +116,7 @@ impl Default for UserData {
 
 impl UserData {
     pub fn load(path: &std::path::Path) -> Self {
-        let text = std::fs::read_to_string(path).ok();
+        let text = crate::vfs::read_to_string(path).ok();
         let mut u: Self = text.as_deref().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
         // saves from before the tutorial existed: a player with a score has
         // played already (only a new player gets the tutorial)

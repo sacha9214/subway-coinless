@@ -116,7 +116,7 @@ impl Library {
             if Some(*path) == stop {
                 break;
             }
-            let bytes = std::fs::read(site_root.join(path)).map_err(|e| format!("{path}: {e}"))?;
+            let bytes = crate::vfs::read(site_root.join(path)).map_err(|e| format!("{path}: {e}"))?;
             let file = pk::parse(&bytes).map_err(|e| format!("{path}: {e}"))?;
             lib.add(path, file);
         }

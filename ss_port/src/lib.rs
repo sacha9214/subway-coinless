@@ -46,6 +46,7 @@ pub mod render_menu_3d;
 pub mod trace;
 pub mod tutorial;
 pub mod ui;
+pub mod vfs;
 pub mod ui_missions;
 pub mod word_hunt;
 pub(crate) mod ui_menu;

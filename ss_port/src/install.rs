@@ -19,6 +19,10 @@ pub struct Install {
 
 impl Install {
     pub fn locate() -> Self {
+        // the web build: the packed files (`crate::vfs`)
+        if cfg!(target_arch = "wasm32") {
+            return Self { site: "/site".into(), port: "/port".into(), repo: None };
+        }
         if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
             if dir.join("data/anim_clips.json").is_file() && dir.join("site").is_dir() {
                 return Self { site: dir.join("site"), port: dir, repo: None };

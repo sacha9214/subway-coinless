@@ -20,6 +20,11 @@ serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
 # the window icon at run time (the same winit Bevy uses)
 winit = { version = "0.30", default-features = false }
 
+# the web build (`web/`): the wall clock and the page's query string
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Location"] }
+
 [build-dependencies]
 # the .exe icon on Windows (assets/icon/icon.ico)
 embed-resource = "3"

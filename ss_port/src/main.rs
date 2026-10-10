@@ -13,6 +13,7 @@
 //!                                            for an outfit; alias --hero; default: the saved selection)
 //!   cargo run --release -- --replay [TRACE]  replay the keydowns of an oracle trace
 //!   cargo run --release -- --replay --screenshot OUT.png --at F
+//!   cargo run --release -- --mute            no sound
 //!   cargo run --release -- --keys FILE       play a keys file (`frame key` lines: the output of the
 //!                                            no-coin planner, `--bin nocoin`), with its seed
 //!
@@ -52,6 +53,8 @@ struct Args {
     god: bool,
     letter: Option<String>,
     replay: Option<PathBuf>,
+    /// `--mute`: no sound.
+    mute: bool,
     /// `--keys FILE`: play a keys file (the no-coin planner's output).
     keys: Option<PathBuf>,
     screenshot: Option<PathBuf>,
@@ -102,8 +105,23 @@ struct Args {
     debug_hud: bool,
 }
 
+/// The command line. The web build has none: it plays one of the no-coin
+/// planner's runs, picked by the page's `?seed=N`.
+fn command_line() -> Vec<String> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let query = web_sys::window().and_then(|w| w.location().search().ok()).unwrap_or_default();
+        let seed: u32 = query.split("seed=").nth(1).map(|v| v.chars().take_while(char::is_ascii_digit).collect::<String>()).and_then(|v| v.parse().ok()).unwrap_or(2);
+        // silent unless the page asks for sound (`?sound=1`)
+        let sound = if query.contains("sound=1") { "--sound" } else { "--mute" };
+        return ["ss_port", "--vsync", sound, "--keys", &format!("/port/runs/seed{seed}-10min.keys")].map(String::from).to_vec();
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    std::env::args().collect()
+}
+
 fn parse_args(inst: &Install) -> Args {
-    let a: Vec<String> = std::env::args().collect();
+    let a: Vec<String> = command_line();
     let get = |k: &str| a.iter().position(|x| x == k).and_then(|i| a.get(i + 1)).filter(|v| !v.starts_with("--")).cloned();
     let has = |k: &str| a.iter().any(|x| x == k);
     let replay = has("--replay").then(|| get("--replay").map(PathBuf::from).unwrap_or_else(|| inst.repo.clone().unwrap_or_else(|| inst.port.clone()).join("oracle/traces/seed1-god/trace.jsonl")));
@@ -117,6 +135,7 @@ fn parse_args(inst: &Install) -> Args {
         letter: Some(get("--letter").unwrap_or_else(|| "S".into())),
         replay,
         keys: get("--keys").map(PathBuf::from),
+        mute: has("--mute"),
         screenshot: get("--screenshot").map(PathBuf::from).or_else(|| get("--dump-frames").map(|d| PathBuf::from(d).join("last.png"))),
         dump_frames: get("--dump-frames").map(PathBuf::from),
         from: get("--from").and_then(|v| v.parse().ok()).unwrap_or(0),
@@ -463,7 +482,7 @@ fn main() {
     }
     // the original game's files: a clear message, not a crash, when the
     // folder is missing (moved or deleted)
-    if !inst.site.join("assets/boards").is_dir() || !inst.site.join("bundles").is_dir() {
+    if cfg!(not(target_arch = "wasm32")) && (!inst.site.join("assets/boards").is_dir() || !inst.site.join("bundles").is_dir()) {
         eprintln!(
             "The game files are missing: expected the original web build's files in\n  {}\n\
              Keep that folder (`oracle/site` next to `ss_port`, or `site` next to the\n\
@@ -506,6 +525,9 @@ fn main() {
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "Subway Surfers".into(),
+                    // the web build draws in the page's canvas
+                    canvas: Some("#game".into()),
+                    fit_canvas_to_parent: true,
                     // a frame dump draws off screen: no window to show
                     visible: args.dump_frames.is_none(),
                     // screenshots at the original's pixel ratio 1 (960x540
@@ -533,7 +555,12 @@ fn main() {
                 }),
                 ..default()
             })
-            .set(AssetPlugin { file_path: paths.site.to_string_lossy().into_owned(), ..default() }),
+            .set(AssetPlugin {
+                // the web build fetches textures and sounds from `site/` next to the page
+                file_path: if cfg!(target_arch = "wasm32") { "site".into() } else { paths.site.to_string_lossy().into_owned() },
+                meta_check: bevy::asset::AssetMetaCheck::Never,
+                ..default()
+            }),
     )
     .insert_resource(args.clone())
     .insert_resource(themes)
@@ -550,7 +577,9 @@ fn main() {
     .add_systems(Update, (read_keys, step_sim, ss_port::render_actors::sync_selected_character, follow_camera, hud, screenshot, dump_frames).chain());
     // sound in play only (screenshot and frame-dump runs stay silent)
     if app.world().resource::<Args>().screenshot.is_none() {
-        app.add_plugins(ss_port::audio::AudioPlugin { theme: theme_id, mute_unfocused: app.world().resource::<Args>().pause_on_blur });
+        if !app.world().resource::<Args>().mute {
+            app.add_plugins(ss_port::audio::AudioPlugin { theme: theme_id, mute_unfocused: app.world().resource::<Args>().pause_on_blur });
+        }
         // keep updating at full rate in the background (Alt-Tab)
         app.insert_resource(bevy::winit::WinitSettings { focused_mode: bevy::winit::UpdateMode::Continuous, unfocused_mode: bevy::winit::UpdateMode::Continuous });
     }
@@ -592,7 +621,7 @@ fn window_icon(windows: Query<Entity, With<bevy::window::PrimaryWindow>>, mut do
     }
     let Ok(e) = windows.single() else { return };
     let path = Install::locate().port.join("assets/icon/icon.png");
-    let Ok(bytes) = std::fs::read(&path) else {
+    let Ok(bytes) = ss_port::vfs::read(&path) else {
         *done = true;
         return;
     };

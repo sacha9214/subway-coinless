@@ -115,7 +115,7 @@ pub struct KeysDriver {
 
 impl KeysDriver {
     pub fn load(path: &Path) -> Result<Self, String> {
-        let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let text = crate::vfs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
         let mut keys: HashMap<i64, Vec<Key>> = HashMap::new();
         let mut seed = None;
         for line in text.lines() {
