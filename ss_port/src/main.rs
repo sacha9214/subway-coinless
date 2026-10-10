@@ -13,6 +13,8 @@
 //!                                            for an outfit; alias --hero; default: the saved selection)
 //!   cargo run --release -- --replay [TRACE]  replay the keydowns of an oracle trace
 //!   cargo run --release -- --replay --screenshot OUT.png --at F
+//!   cargo run --release -- --keys FILE       play a keys file (`frame key` lines: the output of the
+//!                                            no-coin planner, `--bin nocoin`), with its seed
 //!
 //!   cargo run --release -- --aa fxaa           anti-aliasing: off, msaa (default), fxaa, both
 //!   cargo run --release -- --debug-hud       the developer status line (FPS, frame, state...)
@@ -50,6 +52,8 @@ struct Args {
     god: bool,
     letter: Option<String>,
     replay: Option<PathBuf>,
+    /// `--keys FILE`: play a keys file (the no-coin planner's output).
+    keys: Option<PathBuf>,
     screenshot: Option<PathBuf>,
     at: i64,
     /// `--dump-frames DIR --from F --at T`: every frame F..=T as
@@ -112,6 +116,7 @@ fn parse_args(inst: &Install) -> Args {
         // `Na()` picks the word-hunt letter by date; the traces used "S"
         letter: Some(get("--letter").unwrap_or_else(|| "S".into())),
         replay,
+        keys: get("--keys").map(PathBuf::from),
         screenshot: get("--screenshot").map(PathBuf::from).or_else(|| get("--dump-frames").map(|d| PathBuf::from(d).join("last.png"))),
         dump_frames: get("--dump-frames").map(PathBuf::from),
         from: get("--from").and_then(|v| v.parse().ok()).unwrap_or(0),
@@ -300,7 +305,7 @@ struct Hud;
 /// Interactive play opens on the title screen; replays and screenshots start
 /// the run at once (as the oracle traces do).
 fn interactive(args: &Args) -> bool {
-    args.replay.is_none() && args.screenshot.is_none()
+    !args.scripted() && args.screenshot.is_none()
 }
 
 fn build_sim(paths: &DataPaths, args: &Args) -> (Sim, KeyQueue) {
@@ -379,6 +384,13 @@ fn build_sim(paths: &DataPaths, args: &Args) -> (Sim, KeyQueue) {
     (sim, q)
 }
 
+impl Args {
+    /// The keys come from a trace or a keys file, not from the keyboard.
+    fn scripted(&self) -> bool {
+        self.replay.is_some() || self.keys.is_some()
+    }
+}
+
 fn build_sim_at(paths: &DataPaths, args: &Args, start: bool) -> (Sim, KeyQueue) {
     let keys = KeyQueue::default();
     let mut replay_trace = None;
@@ -389,11 +401,17 @@ fn build_sim_at(paths: &DataPaths, args: &Args, start: bool) -> (Sim, KeyQueue) 
             replay_trace = Some(trace.clone());
             (seed, trace_hunt_letter(&trace), Box::new(ReplayDriver::new(trace)))
         }
-        None => (args.seed, args.letter.clone(), Box::new(keys.clone())),
+        None => match &args.keys {
+            Some(path) => {
+                let driver = ss_port::sim_plugin::KeysDriver::load(path).expect("load keys");
+                (driver.seed.unwrap_or(args.seed), args.letter.clone(), Box::new(driver))
+            }
+            None => (args.seed, args.letter.clone(), Box::new(keys.clone())),
+        },
     };
     let mut sim = if start { Sim::new(paths, seed, letter, driver) } else { Sim::new_title(paths, seed, letter, driver) }.expect("sim");
     // `--tutorial`: run the tutorial route (screenshot runs; play follows the save)
-    if std::env::args().any(|a| a == "--tutorial") && args.replay.is_none() {
+    if std::env::args().any(|a| a == "--tutorial") && !args.scripted() {
         sim.game.tutorial_allowed = true;
         sim.game.tutorial_enabled = true;
     }
@@ -403,7 +421,7 @@ fn build_sim_at(paths: &DataPaths, args: &Args, start: bool) -> (Sim, KeyQueue) 
         sim.configure_from_trace(t);
     }
     // the player's currencies and high score persist in interactive play
-    if args.replay.is_none() && args.screenshot.is_none() {
+    if !args.scripted() && args.screenshot.is_none() {
         let save = Install::locate().save_file();
         sim.game.flow.user = ss_port::flow::UserData::load(&save);
         // a character this build does not have (a save from a version with
@@ -614,7 +632,7 @@ fn read_keys(
 ) {
     // Game.onBlur: with --pause-on-blur, interactive play pauses when the
     // window loses focus (by default it plays on: Alt-Tab does not pause)
-    if args.pause_on_blur && args.replay.is_none() && args.screenshot.is_none() {
+    if args.pause_on_blur && !args.scripted() && args.screenshot.is_none() {
         for f in focus.read() {
             if !f.focused {
                 ss_port::flow::blur(&mut sim.game);
@@ -645,7 +663,7 @@ fn read_keys(
         sim.game.to_game();
         return;
     }
-    if args.replay.is_some() {
+    if args.scripted() {
         return;
     }
     let map = [
@@ -769,7 +787,7 @@ fn step_sim(
     // --lock-seed: a second run start (R, PLAY, restart) is a fresh boot of
     // the seed (the first run of a boot has the seed's layout, however long
     // the title showed)
-    if args.lock_seed && args.replay.is_none() && sim.game.run_starts >= 2 {
+    if args.lock_seed && !args.scripted() && sim.game.run_starts >= 2 {
         let seed = args.seed;
         rebuild_with_seed(&mut sim, &mut keys, &paths, &mut args, seed);
         info!("[Seed] Restart with seed {seed}");
@@ -829,7 +847,7 @@ fn hud(
     }
     let g = &sim.game;
     if let Ok(mut t) = q.single_mut() {
-        let mode = if args.replay.is_some() { "replay" } else if g.god { "god mode" } else { "mortal" };
+        let mode = if args.scripted() { "replay" } else if g.god { "god mode" } else { "mortal" };
         if args.screenshot.is_some() || !args.debug_hud {
             t.0.clear();
             return;

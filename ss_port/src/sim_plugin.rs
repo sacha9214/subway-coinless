@@ -106,6 +106,48 @@ impl Driver for KeyQueue {
     }
 }
 
+/// Plays a keys file (`bin/nocoin`'s output): one `frame key` line per key
+/// press, `#` comments; the first line holds the seed (`# seed N ...`).
+pub struct KeysDriver {
+    pub seed: Option<i32>,
+    keys: HashMap<i64, Vec<Key>>,
+}
+
+impl KeysDriver {
+    pub fn load(path: &Path) -> Result<Self, String> {
+        let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let mut keys: HashMap<i64, Vec<Key>> = HashMap::new();
+        let mut seed = None;
+        for line in text.lines() {
+            let w: Vec<&str> = line.split_whitespace().collect();
+            match w.as_slice() {
+                ["#", "seed", n, ..] => seed = n.parse().ok(),
+                [f, k] if !f.starts_with('#') => {
+                    let key = match *k {
+                        "left" => Key::Left,
+                        "right" => Key::Right,
+                        "up" => Key::Up,
+                        "down" => Key::Down,
+                        _ => return Err(format!("{}: unknown key {k:?}", path.display())),
+                    };
+                    keys.entry(f.parse().map_err(|_| format!("{}: bad frame {f:?}", path.display()))?).or_default().push(key);
+                }
+                _ => {}
+            }
+        }
+        Ok(Self { seed, keys })
+    }
+}
+
+impl Driver for KeysDriver {
+    fn last_frame(&self) -> Option<i64> {
+        None
+    }
+    fn input(&mut self, f: i64) -> FrameInput {
+        FrameInput { keys: self.keys.remove(&f).unwrap_or_default(), nav: Vec::new() }
+    }
+}
+
 /// Paths to the game data (the HAR mirror and the port's data folder).
 #[derive(Clone)]
 pub struct DataPaths {

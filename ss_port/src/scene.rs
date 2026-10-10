@@ -131,42 +131,47 @@ pub struct MatOpts {
     pub depth_mask: Option<bool>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Scene {
-    pub objs: Vec<Obj>,
+    /// Shared with the scene's copies until written (a copy of the game is
+    /// then cheap: the search of `bin/nocoin` copies it every frame).
+    pub objs: Vec<std::rc::Rc<Obj>>,
 }
 
 impl Scene {
+    fn obj_mut(&mut self, i: usize) -> &mut Obj {
+        std::rc::Rc::make_mut(&mut self.objs[i])
+    }
     pub fn new_obj(&mut self) -> ObjId {
-        self.objs.push(Obj::default());
+        self.objs.push(Default::default());
         ObjId(self.objs.len() - 1)
     }
     pub fn get(&self, id: ObjId) -> &Obj {
         &self.objs[id.0]
     }
     pub fn get_mut(&mut self, id: ObjId) -> &mut Obj {
-        &mut self.objs[id.0]
+        self.obj_mut(id.0)
     }
 
     /// `Object3D.add`: detach from the old parent, append.
     pub fn add_child(&mut self, parent: ObjId, child: ObjId) {
         self.remove_from_parent(child);
-        self.objs[child.0].parent = Some(parent);
-        self.objs[parent.0].children.push(child);
+        self.obj_mut(child.0).parent = Some(parent);
+        self.obj_mut(parent.0).children.push(child);
     }
     pub fn remove_from_parent(&mut self, child: ObjId) {
-        if let Some(p) = self.objs[child.0].parent.take() {
-            self.objs[p.0].children.retain(|&c| c != child);
+        if let Some(p) = self.obj_mut(child.0).parent.take() {
+            self.obj_mut(p.0).children.retain(|&c| c != child);
         }
     }
     /// Engine `destroy()`: removed from its parent (RB:2155).
     pub fn destroy(&mut self, id: ObjId) {
-        self.objs[id.0].destroyed = true;
+        self.obj_mut(id.0).destroyed = true;
         self.remove_from_parent(id);
     }
     /// Engine `active` setter: also sets `visible` (RB:2110).
     pub fn set_active(&mut self, id: ObjId, active: bool) {
-        let o = &mut self.objs[id.0];
+        let o = self.obj_mut(id.0);
         if o.active != active {
             o.active = active;
             o.visible = active;
@@ -233,7 +238,7 @@ impl Scene {
             self.mount_entity(lib, c, &group, opts);
             c
         };
-        self.objs[e.0].group_name = Some(group);
+        self.obj_mut(e.0).group_name = Some(group);
         e
     }
 
@@ -243,7 +248,7 @@ impl Scene {
         let mut out = Vec::new();
         for hash in parts {
             let p = self.entity_from_geometry(lib, group, &hash, opts);
-            self.objs[p.0].geom_hash = Some(hash);
+            self.obj_mut(p.0).geom_hash = Some(hash);
             self.add_child(target, p);
             out.push(p);
         }
@@ -319,11 +324,11 @@ impl Scene {
         let id = self.new_obj();
         // handleThemeMaterial: boats bob (Wr, frequency 4) from the part's origin
         match geom_key.as_str() {
-            "Boat1" => self.objs[id.0].bob = Some((DVec3::ZERO, DVec3::new(0.0, -2.0, 0.0), 4.0)),
-            "Boat1_reflection" => self.objs[id.0].bob = Some((DVec3::ZERO, DVec3::new(0.0, 2.0, 0.0), 4.0)),
+            "Boat1" => self.obj_mut(id.0).bob = Some((DVec3::ZERO, DVec3::new(0.0, -2.0, 0.0), 4.0)),
+            "Boat1_reflection" => self.obj_mut(id.0).bob = Some((DVec3::ZERO, DVec3::new(0.0, 2.0, 0.0), 4.0)),
             _ => {}
         }
-        self.objs[id.0].visual = Visual::Mesh {
+        self.obj_mut(id.0).visual = Visual::Mesh {
             hash: hash.to_string(),
             scene,
             key,
@@ -352,7 +357,7 @@ impl Scene {
     }
 
     pub fn material_mut(&mut self, id: ObjId) -> Option<&mut Material> {
-        match &mut self.objs[id.0].visual {
+        match &mut self.obj_mut(id.0).visual {
             Visual::Mesh { material, .. } => Some(material),
             _ => None,
         }

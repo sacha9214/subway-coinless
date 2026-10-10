@@ -173,6 +173,7 @@ pub struct MountOpts {
     pub offset_x: Option<f64>,
 }
 
+#[derive(Clone)]
 pub struct Game {
     pub lib: Rc<Library>,
     pub chunks_data: Rc<ChunkData>,

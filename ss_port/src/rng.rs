@@ -21,6 +21,14 @@ pub struct Site(pub &'static str);
 pub trait Rng {
     /// `Math.random()` at `site`: uniform in [0, 1).
     fn random(&mut self, site: Site) -> f64;
+    /// A copy of the generator in its current state (for `Game: Clone`).
+    fn box_clone(&self) -> Box<dyn Rng>;
+}
+
+impl Clone for Box<dyn Rng> {
+    fn clone(&self) -> Self {
+        self.box_clone()
+    }
 }
 
 /// mulberry32, bit-exact with oracle/hooks.js.
@@ -68,6 +76,9 @@ impl OracleRng {
 }
 
 impl Rng for OracleRng {
+    fn box_clone(&self) -> Box<dyn Rng> {
+        Box::new(self.clone())
+    }
     fn random(&mut self, site: Site) -> f64 {
         let seed_hash = self.seed_hash;
         let (stream, n) = self
@@ -90,6 +101,9 @@ impl SingleStreamRng {
 }
 
 impl Rng for SingleStreamRng {
+    fn box_clone(&self) -> Box<dyn Rng> {
+        Box::new(self.clone())
+    }
     fn random(&mut self, _site: Site) -> f64 {
         self.0.next_f64()
     }
