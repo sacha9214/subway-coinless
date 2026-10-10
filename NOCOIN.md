@@ -44,4 +44,4 @@ The port's test suite (trace parity with the original included) passes with thes
 ## Limits
 
 - The runs are for this port with its seeded random numbers. The original web game draws its level from an unseeded `Math.random()`, so a keys file does not transfer to it.
-- Based on [zebmeow/SubwaySurfers](https://github.com/zebmeow/SubwaySurfers) at commit `61315db`. That repository has no license and `oracle/site` holds the original game's files (© SYBO Games / Kiloo): keep this repository private.
+- Based on [zebmeow/SubwaySurfers](https://github.com/zebmeow/SubwaySurfers) at commit `61315db`: the port, its tests and everything outside the changes listed above are that author's work. Subway Surfers and the game files in `oracle/site` are © SYBO Games / Kiloo; this is an unofficial, non-commercial fan project.
