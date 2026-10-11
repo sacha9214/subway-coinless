@@ -141,12 +141,41 @@ struct State {
 /// stumble. A frame on a train roof 1, a jump 60, a lane change in the air
 /// 180, a dive from the air 120, a jump over coins 200. A trick earns again
 /// only after a while, and a key press costs 30: tricks, not fidgeting.
+/// A frame running in the gap between two trains (or a train and the
+/// wall) earns 2, and a jump from a train roof 100 more than from the
+/// ground: what the players of no-coin runs are watched for.
 const ROOF: i64 = 1;
+const SQUEEZE: i64 = 2;
+const ROOF_JUMP: i64 = 100;
 const TRICKS: [(i64, i64); 4] = [(60, 120), (180, 90), (120, 180), (200, 60)]; // (points, frames before it earns again)
 const KEY: i64 = 30;
 
 fn airborne(g: &Game) -> bool {
     g.hero.body.bottom() > g.hero.ground + 1.0
+}
+
+/// The hero runs on the ground with a train beside it on each side (the
+/// wall counts as one in the outer lanes).
+fn squeezed(g: &Game) -> bool {
+    let hero = &g.hero.body;
+    if g.hero.ground > 5.0 || g.hero.lane.changing {
+        return false;
+    }
+    let (x, z) = (hero.cx(), hero.cz());
+    let (mut left, mut right) = (g.hero.lane.lane == -1, g.hero.lane.lane == 1);
+    for &id in &g.level_entities {
+        let e = g.ent(id);
+        if !matches!(e.cls, ss_port::entities::Cls::Train(_)) || !e.active {
+            continue;
+        }
+        let Some(b) = e.body.as_ref() else { continue };
+        let c = b.center();
+        if (c.z - z).abs() < b.size().z / 2.0 {
+            left |= (c.x - (x - 20.0)).abs() < 5.0;
+            right |= (c.x - (x + 20.0)).abs() < 5.0;
+        }
+    }
+    left && right
 }
 
 /// The coins the hero went over in the frame just played (from `z` to where it is now).
@@ -295,7 +324,7 @@ fn main() {
             'key: for &a in keys(&st.game) {
                 let mut g = st.game.clone();
                 let bumps = g.hero.player.bump_count;
-                let (in_air, lane) = (airborne(&g), g.hero.lane.lane);
+                let (in_air, lane, on_roof) = (airborne(&g), g.hero.lane.lane, g.hero.ground > 5.0);
                 let (mut stumbles, mut style, mut last) = (0, 0, st.last);
                 for frame in f..=to {
                     let key = if frame == f { ACTIONS[a] } else { None };
@@ -309,7 +338,7 @@ fn main() {
                     }
                     stumbles = stumbles.max((g.hero.player.bump_count > bumps) as u32);
                     if args.style && g.state == GameState::Running {
-                        style += ROOF * (g.hero.ground > 5.0) as i64;
+                        style += ROOF * (g.hero.ground > 5.0) as i64 + SQUEEZE * squeezed(&g) as i64;
                         if coins_hopped(&g, z) > 0 && frame - last[3] >= TRICKS[3].1 {
                             style += TRICKS[3].0;
                             last[3] = frame;
@@ -323,7 +352,7 @@ fn main() {
                                 _ => None,
                             };
                             if let Some(t) = trick.filter(|&t| f - last[t] >= TRICKS[t].1) {
-                                style += TRICKS[t].0;
+                                style += TRICKS[t].0 + if t == 0 && on_roof { ROOF_JUMP } else { 0 };
                                 last[t] = f;
                             }
                         }

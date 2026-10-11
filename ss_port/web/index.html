@@ -16,6 +16,15 @@
   .lead { color: var(--dim); max-width: 62ch; }
   .stage { position: relative; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 20px 0 12px; }
   .stage canvas { display: block; width: 100%; height: 100%; outline: none; }
+  /* a speedrun's timer and input display, over the game */
+  #timer { position: absolute; left: 0; bottom: 0; padding: 0.1em 0.45em; background: rgba(0, 0, 0, 0.72); color: #7dffb0; font: 700 clamp(1rem, 4.2vw, 2.4rem)/1.2 ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; border-top-right-radius: 8px; pointer-events: none; }
+  #pad { position: absolute; right: 1.5%; bottom: 3%; display: grid; grid-template: repeat(2, 1fr) / repeat(3, 1fr); gap: 3px; width: clamp(60px, 13%, 120px); aspect-ratio: 3 / 2; pointer-events: none; }
+  #pad i { display: grid; place-items: center; background: rgba(0, 0, 0, 0.72); color: #555; font-style: normal; font-size: clamp(0.6rem, 1.8vw, 1.1rem); border-radius: 4px; }
+  #pad i[data-k="up"] { grid-area: 1 / 2; }
+  #pad i[data-k="left"] { grid-area: 2 / 1; }
+  #pad i[data-k="down"] { grid-area: 2 / 2; }
+  #pad i[data-k="right"] { grid-area: 2 / 3; }
+  #pad i.on { background: var(--accent); color: #000; }
   #status { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--dim); background: #000; }
   #status.hidden { display: none; }
   .player { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
@@ -47,7 +56,9 @@
 
   <div class="stage">
     <canvas id="game"></canvas>
-    <div id="status">Loading the game (about 40 MB)…</div>
+    <div id="timer" aria-hidden="true">0:00.00</div>
+    <div id="pad" aria-hidden="true"><i data-k="up">&#9650;</i><i data-k="left">&#9664;</i><i data-k="down">&#9660;</i><i data-k="right">&#9654;</i></div>
+    <div id="status">Loading the game (about 25 MB)…</div>
   </div>
 
   <div class="player">
@@ -81,7 +92,7 @@
   <div class="text">
     <p>Nothing here is learned and nothing looks at the screen. The game on this page is a Rust port of the web version whose simulation is deterministic: the same seed and the same key presses always give the same run.</p>
     <p>So the planner searches the game itself. Every 4 frames it takes every position the run could be in and tries each key: nothing, left, right, jump, roll. Anything that crashes or touches a coin is thrown away. What survives to the end is a list of key presses, and this page replays that list.</p>
-    <p>Where it has room, it shows off: it jumps over rows of coins, changes lane in mid-air and runs along train roofs, as long as that costs no stumble.</p>
+    <p>Where it has room, it shows off: it jumps over rows of coins, changes lane in mid-air, runs along train roofs and through the gap between two trains, as long as that costs no stumble. The arrows in the corner are the keys it presses.</p>
     <p>When the list ends the keys stop, so the run ends in a crash a moment later.</p>
     <p>Code and details: <a href="https://github.com/sacha9214/subway-nocoin">github.com/sacha9214/subway-nocoin</a>.</p>
   </div>
@@ -145,6 +156,29 @@
     else return;
     e.preventDefault();
   });
+  // the timer and the keys the bot presses, as in a speedrun video
+  const pressed = new Map();
+  fetch("runs/seed" + seed + ".keys").then((r) => r.text()).then((text) => {
+    for (const line of text.split("\n")) {
+      const [frame, key] = line.split(" ");
+      if (key && frame !== "#") pressed.set(Number(frame), key);
+    }
+  });
+  const pad = Object.fromEntries([...document.querySelectorAll("#pad i")].map((i) => [i.dataset.k, i]));
+  const tick = () => {
+    const p = state();
+    if (p && p[2] > p[1]) {
+      const frame = Math.min(p[0], p[2]);
+      const t = Math.max(0, frame - p[1]) / 60;
+      const h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60;
+      $("timer").textContent = (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + (t % 60).toFixed(2).padStart(5, "0");
+      const lit = new Set();
+      for (let f = p[0] - 9; f <= p[0]; f++) if (pressed.has(f)) lit.add(pressed.get(f));
+      for (const k in pad) pad[k].classList.toggle("on", lit.has(k));
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
   setInterval(() => {
     const p = state();
     if (!p || p[2] <= p[1]) return;

@@ -70,6 +70,11 @@ def main():
                 to = os.path.join(dest, "site", os.path.relpath(p, SITE))
                 os.makedirs(os.path.dirname(to), exist_ok=True)
                 shutil.copyfile(p, to)
+        # the keys again, for the page's input display
+        os.makedirs(os.path.join(dest, "runs"), exist_ok=True)
+        for name, p in entries:
+            if name.startswith("/port/runs/"):
+                shutil.copyfile(p, os.path.join(dest, "runs", os.path.basename(name)))
         for f in ("index.html", "runs.json"):
             shutil.copyfile(os.path.join(PORT, "web", f), os.path.join(dest, f))
         print(f"{dest}: page, textures and sounds")
