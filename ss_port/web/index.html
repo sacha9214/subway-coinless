@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Subway Surfers, twenty minutes, zero coins</title>
-<meta name="description" content="Watch a search algorithm run Subway Surfers for twenty minutes without touching a single coin.">
+<title>Subway Surfers, zero coins</title>
+<meta name="description" content="Watch a search algorithm run Subway Surfers for as long as it can without touching a single coin.">
 <style>
   :root { --bg: #0e1116; --panel: #171b22; --line: #2a303a; --text: #e8ebf0; --dim: #9aa4b2; --accent: #ffc83d; }
   * { box-sizing: border-box; }
@@ -24,12 +24,13 @@
   .player input { flex: 1 1 180px; min-width: 120px; accent-color: var(--accent); }
   .player span { color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 26px; }
-  .bar span { color: var(--dim); margin-right: 4px; }
+  .bar > span:first-child { color: var(--dim); margin-right: 4px; }
+  #seeds { display: contents; }
   .bar a { color: var(--text); text-decoration: none; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 14px; }
   .bar a:hover { border-color: var(--dim); }
   .bar a.on { border-color: var(--accent); color: var(--accent); }
   h2 { font-size: 1.1rem; margin: 26px 0 8px; }
-  table { border-collapse: collapse; width: 100%; max-width: 600px; font-variant-numeric: tabular-nums; }
+  table { border-collapse: collapse; width: 100%; max-width: 520px; font-variant-numeric: tabular-nums; }
   th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--line); }
   th:first-child, td:first-child { text-align: left; }
   th { color: var(--dim); font-weight: 500; }
@@ -40,7 +41,7 @@
 </head>
 <body>
 <main>
-  <h1>Subway Surfers: twenty minutes, <b>zero coins</b></h1>
+  <h1>Subway Surfers, as far as it goes with <b>zero coins</b></h1>
   <p class="lead">A search algorithm plays this run. Watch the coin counter in the top right corner: it stays at 0 for the whole run. Pause, skip around or speed it up like a video.</p>
 
   <div class="stage">
@@ -60,31 +61,26 @@
       <option value="2">2&times;</option>
       <option value="4">4&times;</option>
       <option value="8">8&times;</option>
+      <option value="16">16&times;</option>
     </select>
   </div>
 
   <div class="bar">
     <span>Run:</span>
-    <a href="?seed=1" data-seed="1">Seed 1</a>
-    <a href="?seed=2" data-seed="2">Seed 2</a>
-    <a href="?seed=3" data-seed="3">Seed 3</a>
-    <a href="?seed=4" data-seed="4">Seed 4</a>
+    <span id="seeds"></span>
     <a href="" id="sound">Sound: off</a>
   </div>
 
-  <h2>The four runs</h2>
-  <table>
-    <tr><th>Seed</th><th>Length</th><th>Coins</th><th>Score</th><th>Key presses</th><th>Stumbles</th></tr>
-    <tr><td>1</td><td>10 min</td><td>0</td><td>12494</td><td>429</td><td>2</td></tr>
-    <tr><td>2</td><td>20 min</td><td>0</td><td>25947</td><td>934</td><td>11</td></tr>
-    <tr><td>3</td><td>20 min</td><td>0</td><td>25911</td><td>937</td><td>6</td></tr>
-    <tr><td>4</td><td>10 min</td><td>0</td><td>12697</td><td>428</td><td>3</td></tr>
+  <h2>The runs</h2>
+  <table id="runs">
+    <tr><th>Seed</th><th>Length</th><th>Coins</th><th>Key presses</th></tr>
   </table>
 
   <h2>How it plays</h2>
   <div class="text">
     <p>Nothing here is learned and nothing looks at the screen. The game on this page is a Rust port of the web version whose simulation is deterministic: the same seed and the same key presses always give the same run.</p>
     <p>So the planner searches the game itself. Every 4 frames it takes every position the run could be in and tries each key: nothing, left, right, jump, roll. Anything that crashes or touches a coin is thrown away. What survives to the end is a list of key presses, and this page replays that list.</p>
+    <p>Where it has room, it shows off: it jumps over rows of coins, changes lane in mid-air and runs along train roofs, as long as that costs no stumble.</p>
     <p>When the list ends the keys stop, so the run ends in a crash a moment later.</p>
     <p>Code and details: <a href="https://github.com/sacha9214/subway-nocoin">github.com/sacha9214/subway-nocoin</a>.</p>
   </div>
@@ -93,15 +89,29 @@
 </main>
 <script type="module">
   const seed = new URLSearchParams(location.search).get("seed") || "2";
-  for (const a of document.querySelectorAll("[data-seed]")) a.classList.toggle("on", a.dataset.seed === seed);
   // silent unless asked: the page must not cut in on what the visitor is listening to
   const sound = new URLSearchParams(location.search).get("sound") === "1";
   const query = (s, snd) => "?seed=" + s + (snd ? "&sound=1" : "");
-  for (const a of document.querySelectorAll("[data-seed]")) a.href = query(a.dataset.seed, sound);
   const toggle = document.getElementById("sound");
   toggle.textContent = "Sound: " + (sound ? "on" : "off");
   toggle.classList.toggle("on", sound);
   toggle.href = query(seed, !sound);
+  // the runs in this build: a button and a table row each
+  const length = (frames) => {
+    const s = Math.floor(frames / 60);
+    return (s >= 3600 ? Math.floor(s / 3600) + " h " : "") + Math.floor((s % 3600) / 60) + " min" + (s % 60 ? " " + (s % 60) + " s" : "");
+  };
+  fetch("runs.json").then((r) => r.json()).then((runs) => {
+    for (const run of runs) {
+      const a = document.createElement("a");
+      a.href = query(run.seed, sound);
+      a.textContent = "Seed " + run.seed + " · " + length(run.frames);
+      a.classList.toggle("on", String(run.seed) === seed);
+      document.getElementById("seeds").append(a, " ");
+      const row = document.getElementById("runs").insertRow();
+      for (const v of [run.seed, length(run.frames), 0, run.keys]) row.insertCell().textContent = v;
+    }
+  });
   const status = document.getElementById("status");
   const game = await import("./game.js");
   game.default().catch((e) => {

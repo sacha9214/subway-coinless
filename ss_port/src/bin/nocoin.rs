@@ -13,8 +13,14 @@
 //!
 //! Following every state is too slow, so only `cap` are kept, picked to
 //! cover every lane, pose and height. When that loses the way (every state
-//! kept fails), the search goes back a few seconds and follows 4, 16, then
-//! 64 times as many.
+//! kept fails), the search goes back and follows more: 10 s back with 4
+//! times as many, then 20 s with 16 times, 40 s with 64 times and a key
+//! every frame, and on to 320 s back.
+//!
+//! Among the ways through, the search keeps the ones with the most style
+//! points (jumps over coins, lane changes in the air, train roofs: see
+//! `TRICKS`), as long as they cost no stumble. `--plain` asks for the
+//! fewest key presses instead.
 //!
 //!   cargo run --release --bin nocoin -- --seed 1 --minutes 10 --out run.keys
 //!
@@ -46,6 +52,8 @@ struct Args {
     cap: usize,
     /// Mystery boxes are allowed (their prize, opened after the run, can be coins).
     boxes: bool,
+    /// Tricks are sought where they cost no stumble (off: the fewest key presses).
+    style: bool,
     out: PathBuf,
     quiet: bool,
 }
@@ -61,6 +69,7 @@ fn args() -> Args {
         period: get("--period").and_then(|v| v.parse().ok()).unwrap_or(4),
         cap: get("--cap").and_then(|v| v.parse().ok()).unwrap_or(60),
         boxes: has("--allow-boxes"),
+        style: !has("--plain"),
         out: get("--out").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("run.keys")),
         quiet: has("--quiet"),
     }
@@ -120,8 +129,43 @@ fn signature(g: &Game) -> u64 {
 struct State {
     game: Game,
     node: u32,
-    /// Stumbles so far, then key presses: the lower is kept among equals.
-    cost: (u32, u32),
+    /// Stumbles so far, minus the style points, then key presses: the lower
+    /// is kept among equals.
+    cost: (u32, i64, u32),
+    /// The frames of the last jump, lane change in the air and dive that
+    /// earned style points (each earns again only after a while).
+    last: [i64; 4],
+}
+
+/// Style points: what makes the run fun to watch, taken when it costs no
+/// stumble. A frame on a train roof 1, a jump 60, a lane change in the air
+/// 180, a dive from the air 120, a jump over coins 200. A trick earns again
+/// only after a while, and a key press costs 30: tricks, not fidgeting.
+const ROOF: i64 = 1;
+const TRICKS: [(i64, i64); 4] = [(60, 120), (180, 90), (120, 180), (200, 60)]; // (points, frames before it earns again)
+const KEY: i64 = 30;
+
+fn airborne(g: &Game) -> bool {
+    g.hero.body.bottom() > g.hero.ground + 1.0
+}
+
+/// The coins the hero went over in the frame just played (from `z` to where it is now).
+fn coins_hopped(g: &Game, z: f64) -> i64 {
+    let hero = &g.hero.body;
+    let (x, now, feet) = (hero.cx(), hero.cz(), hero.bottom());
+    let mut n = 0;
+    for &id in &g.level_entities {
+        let e = g.ent(id);
+        if e.cls != ss_port::entities::Cls::Coin || !e.active {
+            continue;
+        }
+        let Some(b) = e.body.as_ref() else { continue };
+        let c = b.center();
+        if c.z <= z && c.z > now && (c.x - x).abs() < 4.0 && feet > c.y + b.size().y / 2.0 {
+            n += 1;
+        }
+    }
+    n
 }
 
 /// The keys worth pressing in this state. A lane key during a lane change
@@ -157,7 +201,7 @@ fn thin(next: Vec<State>, cap: usize) -> Vec<State> {
     let mut ranked: Vec<_> = next.into_iter().map(|s| (place(&s.game), s)).collect();
     ranked.sort_by_key(|(p, s)| (*p, s.cost));
     let mut rank = 0u32;
-    let mut order: Vec<(u32, (u32, u32), State)> = Vec::with_capacity(ranked.len());
+    let mut order: Vec<(u32, (u32, i64, u32), State)> = Vec::with_capacity(ranked.len());
     let mut last = None;
     for (p, s) in ranked {
         rank = if last == Some(p) { rank + 1 } else { 0 };
@@ -218,7 +262,7 @@ fn main() {
 
     // nodes[i] = (parent, frame, key): the key pressed in `frame`
     let mut nodes: Vec<(u32, i64, u8)> = vec![(u32::MAX, first - 1, 0)];
-    let mut states = vec![State { game, node: 0, cost: (0, 0) }];
+    let mut states = vec![State { game, node: 0, cost: (0, 0, 0), last: [i64::MIN / 2; 4] }];
     let mut causes: HashMap<&'static str, u64> = HashMap::new();
     let (mut steps, mut most, mut thinned) = (0u64, 0usize, 0u32);
     let started = Instant::now();
@@ -233,11 +277,11 @@ fn main() {
         if f > wide_to {
             level = 0;
         }
-        let cap = args.cap << (2 * level);
-        let period = if level >= 2 { 1 } else { args.period };
+        let cap = args.cap << (2 * level.min(3));
+        let period = if level >= 3 { 1 } else { args.period };
         if level == 0 && checkpoints.back().is_none_or(|c| f - c.0 >= CHECKPOINT) {
             checkpoints.push_back((f, states.clone()));
-            if checkpoints.len() > 8 {
+            if checkpoints.len() > 80 {
                 checkpoints.pop_front();
             }
         }
@@ -251,9 +295,11 @@ fn main() {
             'key: for &a in keys(&st.game) {
                 let mut g = st.game.clone();
                 let bumps = g.hero.player.bump_count;
-                let mut stumbles = 0;
+                let (in_air, lane) = (airborne(&g), g.hero.lane.lane);
+                let (mut stumbles, mut style, mut last) = (0, 0, st.last);
                 for frame in f..=to {
                     let key = if frame == f { ACTIONS[a] } else { None };
+                    let z = g.hero.body.cz();
                     g.step(frame, FrameInput { keys: key.into_iter().collect(), nav: Vec::new() });
                     g.log.clear();
                     steps += 1;
@@ -262,12 +308,34 @@ fn main() {
                         continue 'key;
                     }
                     stumbles = stumbles.max((g.hero.player.bump_count > bumps) as u32);
+                    if args.style && g.state == GameState::Running {
+                        style += ROOF * (g.hero.ground > 5.0) as i64;
+                        if coins_hopped(&g, z) > 0 && frame - last[3] >= TRICKS[3].1 {
+                            style += TRICKS[3].0;
+                            last[3] = frame;
+                        }
+                        if frame == f {
+                            // the trick this key made, if it did what it was pressed for
+                            let trick = match a {
+                                3 if !in_air && g.hero.jump.is_jumping => Some(0),
+                                1 | 2 if in_air && g.hero.lane.lane != lane => Some(1),
+                                4 if in_air && g.hero.roll.is_rolling => Some(2),
+                                _ => None,
+                            };
+                            if let Some(t) = trick.filter(|&t| f - last[t] >= TRICKS[t].1) {
+                                style += TRICKS[t].0;
+                                last[t] = f;
+                            }
+                        }
+                    }
                 }
+                // a stumble is no show
+                let style = if stumbles > 0 { 0 } else { style } - KEY * (a != 0) as i64;
                 if !seen.insert(signature(&g)) {
                     continue;
                 }
                 nodes.push((st.node, f, a as u8));
-                next.push(State { game: g, node: nodes.len() as u32 - 1, cost: (st.cost.0 + stumbles, st.cost.1 + (a != 0) as u32) });
+                next.push(State { game: g, node: nodes.len() as u32 - 1, cost: (st.cost.0 + stumbles, st.cost.1 - style, st.cost.2 + (a != 0) as u32), last });
             }
         }
         for c in &dropped {
@@ -278,16 +346,16 @@ fn main() {
             // earlier. Back a few seconds, with more states (and then with
             // a key every frame); further back and wider if that fails too
             let wider = if to <= wide_to { level + 1 } else { 1 };
-            let back = to - CHECKPOINT * 2 * wider as i64;
+            let back = to - (CHECKPOINT << wider);
             let at = checkpoints.iter().rposition(|c| c.0 <= back).unwrap_or(0);
-            if wider > 3 || checkpoints.is_empty() {
+            if wider > 6 || checkpoints.is_empty() {
                 dead_end = Some((to, dropped));
                 break;
             }
             checkpoints.truncate(at + 1);
             let (frame, kept) = checkpoints.back().unwrap();
             if !args.quiet {
-                eprintln!("dead end at frame {to} ({:?}): back to frame {frame} with {} states", dropped.first().unwrap(), args.cap << (2 * wider));
+                eprintln!("dead end at frame {to} ({:?}): back to frame {frame} with {} states", dropped.first().unwrap(), args.cap << (2 * wider.min(3)));
             }
             (f, states) = (*frame, kept.clone());
             (level, wide_to) = (wider, to + CHECKPOINT);
@@ -302,6 +370,11 @@ fn main() {
         states = next;
         f = to + 1;
         let played = f - first;
+        // the run so far, every minute of it: a long search can be stopped at any time
+        if level == 0 && played % 3600 < period && played >= 3600 {
+            let best = states.iter().min_by_key(|s| s.cost).unwrap();
+            write_run(&args, &nodes, best.node, first, played);
+        }
         if debug || (!args.quiet && level == 0 && played % 3600 < period && played >= 3600) {
             let g = &states[0].game;
             eprintln!(
@@ -318,21 +391,8 @@ fn main() {
 
     // the run behind the cheapest state left (at a dead end: the last one alive)
     let best = states.iter().min_by_key(|s| s.cost).unwrap();
-    let mut keys = Vec::new();
-    let mut node = best.node;
-    while node != 0 {
-        let (parent, frame, a) = nodes[node as usize];
-        if a != 0 {
-            keys.push((frame, a as usize));
-        }
-        node = parent;
-    }
-    keys.reverse();
-    let mut out = std::fs::File::create(&args.out).expect("output file");
-    writeln!(out, "# seed {} first {} frames {} complete {}", args.seed, first, args.frames, dead_end.is_none()).unwrap();
-    for (f, a) in &keys {
-        writeln!(out, "{f} {}", NAMES[*a]).unwrap();
-    }
+    let played = if dead_end.is_some() { best.game.frame - first + 1 } else { args.frames };
+    let keys = write_run(&args, &nodes, best.node, first, played);
 
     let secs = started.elapsed().as_secs_f64();
     let search = format!("search {secs:.1} s, {steps} steps, {most} states at most, thinned {thinned} times, {rewinds} dead ends, dropped {causes:?}");
@@ -340,7 +400,7 @@ fn main() {
         None => {
             let g = &best.game;
             println!(
-                "seed {}: {} frames ({:.1} min) with {} coins, score {}, {} key presses, {} stumbles, {} ways left; {search}",
+                "seed {}: {} frames ({:.1} min) with {} coins, score {}, {} key presses, {} stumbles, {} style points, {} ways left; {search}",
                 args.seed,
                 args.frames,
                 args.frames as f64 / 3600.0,
@@ -348,6 +408,7 @@ fn main() {
                 ss_port::flow::score(g),
                 keys.len(),
                 best.cost.0,
+                -best.cost.1,
                 states.len()
             );
             println!("keys written to {}", args.out.display());
@@ -361,10 +422,33 @@ fn main() {
                 describe(&best.game);
             }
             println!("seed {}: dead end at frame {t} ({:.1} s of run): the {} states left all fail ({why:?}); {search}", args.seed, (t - first) as f64 / 60.0, states.len());
-            println!("keys up to there written to {}", args.out.display());
+            println!("keys up to frame {} written to {}", first + played - 1, args.out.display());
             std::process::exit(1);
         }
     }
+}
+
+/// Write the keys on the way to `node`, a run of `frames` frames.
+fn write_run(args: &Args, nodes: &[(u32, i64, u8)], mut node: u32, first: i64, frames: i64) -> Vec<(i64, usize)> {
+    let mut keys = Vec::new();
+    while node != 0 {
+        let (parent, frame, a) = nodes[node as usize];
+        if a != 0 {
+            keys.push((frame, a as usize));
+        }
+        node = parent;
+    }
+    keys.reverse();
+    // written aside and moved over: a reader never sees half a file
+    let tmp = args.out.with_extension("keys.tmp");
+    let mut out = std::fs::File::create(&tmp).expect("output file");
+    writeln!(out, "# seed {} first {} frames {} complete true", args.seed, first, frames).unwrap();
+    for (f, a) in &keys {
+        writeln!(out, "{f} {}", NAMES[*a]).unwrap();
+    }
+    drop(out);
+    std::fs::rename(&tmp, &args.out).expect("output file");
+    keys
 }
 
 /// The hero and the level entities around it (NOCOIN_DEBUG).

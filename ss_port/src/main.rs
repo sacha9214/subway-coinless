@@ -892,6 +892,9 @@ fn step_sim(
                 snapshots.keep(&sim);
             }
             sim.step();
+            if args.keys.is_some() {
+                sim.forget_log();
+            }
         }
     }
     // how far into the next 60 Hz step this render frame is

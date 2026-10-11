@@ -243,6 +243,13 @@ impl Sim {
         }
     }
 
+    /// Drop the game's event log (nothing reads it in play; it would grow
+    /// with the run, and with it every copy of the game).
+    pub fn forget_log(&mut self) {
+        self.game.log.clear();
+        self.log_cursor = 0;
+    }
+
     /// Replace the game by a copy taken before frame `next_frame`
     /// (`crate::playback`): a new simulation for the renderer.
     pub fn restore(&mut self, game: Game, next_frame: i64) {

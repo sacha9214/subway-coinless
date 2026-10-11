@@ -6,6 +6,7 @@ to a folder to publish.
     python3 tools/web_pack.py            # web/pack.bin
     python3 tools/web_pack.py --site DIR # also DIR/site/... (after the wasm build)
 """
+import json
 import os
 import shutil
 import struct
@@ -34,15 +35,24 @@ def main():
         for p in walk(os.path.join(PORT, sub)):
             entries.append(("/port/" + os.path.relpath(p, PORT), p))
     entries.append(("/port/assets/icon/icon.png", os.path.join(PORT, "assets/icon/icon.png")))
-    # one run per seed: the longest (seedN-20min.keys over seedN-10min.keys)
+    # one run per seed: the longest (a search under way rewrites its file as it goes)
     runs = {}
     for p in walk(os.path.join(ROOT, "runs")):
-        if p.endswith(".keys") and "complete true" in open(p).readline():
-            seed, minutes = os.path.basename(p)[:-len("min.keys")].split("-")
-            if int(minutes) > runs.get(seed, (0, ""))[0]:
-                runs[seed] = (int(minutes), p)
+        head = open(p).readline().split()
+        if p.endswith(".keys") and "true" in head[-1:]:
+            seed = os.path.basename(p).split("-")[0]
+            frames = int(head[head.index("frames") + 1])
+            if frames > runs.get(seed, (0, ""))[0]:
+                runs[seed] = (frames, p)
+    listing = []
     for seed, (_, p) in sorted(runs.items()):
         entries.append((f"/port/runs/{seed}.keys", p))
+        lines = open(p).read().split("\n")
+        head = lines[0].split()
+        listing.append({"seed": int(seed[4:]), "frames": int(head[head.index("frames") + 1]), "keys": sum(1 for l in lines[1:] if l.strip())})
+    # the runs, for the page
+    with open(os.path.join(PORT, "web/runs.json"), "w") as f:
+        json.dump(listing, f)
     out = os.path.join(PORT, "web/pack.bin")
     with open(out, "wb") as f:
         for name, p in entries:
@@ -58,7 +68,8 @@ def main():
                 to = os.path.join(dest, "site", os.path.relpath(p, SITE))
                 os.makedirs(os.path.dirname(to), exist_ok=True)
                 shutil.copyfile(p, to)
-        shutil.copyfile(os.path.join(PORT, "web/index.html"), os.path.join(dest, "index.html"))
+        for f in ("index.html", "runs.json"):
+            shutil.copyfile(os.path.join(PORT, "web", f), os.path.join(dest, f))
         print(f"{dest}: page, textures and sounds")
 
 

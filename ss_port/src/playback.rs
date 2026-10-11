@@ -2,7 +2,7 @@
 //! and seeking.
 //!
 //! The run is deterministic, so any frame can be reached again: the app
-//! keeps a copy of the game every few seconds ([`Snapshots`]) and seeking
+//! keeps a copy of the game every 20 seconds ([`Snapshots`]) and seeking
 //! goes to the last copy before the frame, then steps to it.
 //!
 //! The controls are plain atomics: the keyboard sets them natively, the
@@ -23,7 +23,7 @@ pub static FIRST: AtomicI64 = AtomicI64::new(0);
 pub static LAST: AtomicI64 = AtomicI64::new(0);
 
 /// Frames between two copies of the game.
-const EVERY: i64 = 600;
+const EVERY: i64 = 1200;
 
 /// Copies of the game: (the next frame to play, the game), in frame order.
 #[derive(Default)]
@@ -49,6 +49,7 @@ impl Snapshots {
         while sim.next_frame < frame {
             self.keep(sim);
             sim.step();
+            sim.forget_log();
         }
         // the sounds of the frames skipped
         sim.game.sound.cmds.clear();
