@@ -42,8 +42,10 @@ def main():
         if p.endswith(".keys") and "true" in head[-1:]:
             seed = os.path.basename(p).split("-")[0]
             frames = int(head[head.index("frames") + 1])
-            if frames > runs.get(seed, (0, ""))[0]:
-                runs[seed] = (frames, p)
+            # the long runs (with tricks) before the earlier plain ones
+            rank = ("-120min" in p or "-200min" in p, frames)
+            if rank > runs.get(seed, ((False, 0), ""))[0]:
+                runs[seed] = (rank, p)
     listing = []
     for seed, (_, p) in sorted(runs.items()):
         entries.append((f"/port/runs/{seed}.keys", p))
