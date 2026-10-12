@@ -42,7 +42,8 @@
   #pad i[data-k="ArrowDown"] { grid-area: 2 / 2; }
   #pad i[data-k="ArrowRight"] { grid-area: 2 / 3; }
   #pad i.on { background: var(--accent); color: #000; }
-  #full { position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); font: inherit; font-size: 0.85rem; color: var(--text); background: rgba(0, 0, 0, 0.72); border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px; cursor: pointer; opacity: 0.75; }
+  /* (on the left edge: the bottom and the top belong to the game's own buttons) */
+  #full { position: absolute; left: 1%; top: 50%; transform: translateY(-50%); font: inherit; font-size: 0.8rem; color: var(--text); background: rgba(0, 0, 0, 0.6); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; cursor: pointer; opacity: 0.6; }
   #full:hover { opacity: 1; }
   .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
   .bar a, .bar button { font: inherit; color: var(--text); text-decoration: none; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
@@ -82,7 +83,7 @@
     </div>
     <div id="timer" aria-hidden="true">0:00.00</div>
     <div id="pad" aria-hidden="true"><i data-k="ArrowUp">&#9650;</i><i data-k="ArrowLeft">&#9664;</i><i data-k="ArrowDown">&#9660;</i><i data-k="ArrowRight">&#9654;</i></div>
-    <button id="full" title="Full screen (F)">Full screen</button>
+    <button id="full" title="Full screen (F)">⤢</button>
     <div id="status">Loading the game (about 25 MB)…</div>
   </div>
 
@@ -104,6 +105,7 @@
   <div class="text">
     <p>Click the game, then press <kbd>Space</kbd> or click PLAY. <kbd>←</kbd> <kbd>→</kbd> change lane, <kbd>↑</kbd> jumps, <kbd>↓</kbd> rolls, <kbd>F</kbd> goes full screen. On a phone, swipe.</p>
     <p>Crashing ends the run as usual. So does a coin: the first one you touch stops you dead. Magnets are a trap. You get one life: there is no revive. After a run, <kbd>Space</kbd> plays again and <kbd>H</kbd> goes back home.</p>
+    <p>Every character, outfit and board is unlocked: pick yours in the game's ME menu.</p>
     <p>Sign in with Google to put your time on the leaderboard. Only the name you choose is shown. Each saved run keeps its track and its key presses, so it can be played back.</p>
     <p>A bot plays this challenge too, for over an hour: <a href="https://sacha9214.github.io/subway-nocoin/">watch its runs</a>.</p>
   </div>
@@ -161,7 +163,7 @@
     canvas.focus();
   };
   $("full").onclick = toggleFull;
-  const label = () => { $("full").textContent = document.fullscreenElement || stage.classList.contains("fill") ? "Exit full screen" : "Full screen"; };
+  const label = () => { $("full").textContent = document.fullscreenElement || stage.classList.contains("fill") ? "⤡" : "⤢"; $("full").title = "Full screen (F)"; };
   document.addEventListener("fullscreenchange", label);
   new MutationObserver(label).observe(stage, { attributes: true, attributeFilter: ["class"] });
 

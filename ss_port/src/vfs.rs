@@ -49,7 +49,29 @@ mod pack {
     }
 }
 
+/// The browser's storage stands in for the save folder (`/port/save/...`)
+/// of the web build: the key of a path there.
+#[cfg(target_arch = "wasm32")]
+fn stored(path: &Path) -> Option<(web_sys::Storage, String)> {
+    let key = pack::key(path);
+    let name = key.strip_prefix("/port/save/")?;
+    let storage = web_sys::window()?.local_storage().ok()??;
+    Some((storage, format!("coinless:{name}")))
+}
+
+/// Write a file of the save folder. Natively `crate::install::write_atomic`.
+#[cfg(target_arch = "wasm32")]
+pub fn write_saved(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let unsupported = || std::io::Error::new(std::io::ErrorKind::Unsupported, "no storage in this browser");
+    let (storage, key) = stored(path).ok_or_else(unsupported)?;
+    storage.set_item(&key, &String::from_utf8_lossy(bytes)).map_err(|_| unsupported())
+}
+
 pub fn read(path: impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some((storage, key)) = stored(path.as_ref()) {
+        return storage.get_item(&key).ok().flatten().map(String::into_bytes).ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, key));
+    }
     #[cfg(not(target_arch = "wasm32"))]
     return std::fs::read(path);
     #[cfg(target_arch = "wasm32")]

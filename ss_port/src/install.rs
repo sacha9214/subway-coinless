@@ -70,19 +70,25 @@ fn user_data_dir() -> Option<PathBuf> {
 /// renamed over the old file (a crash leaves the old or the new save, never
 /// half of one).
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    use std::io::Write;
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)?;
-    }
-    let mut tmp = path.as_os_str().to_owned();
-    tmp.push(".tmp");
-    let tmp = PathBuf::from(tmp);
+    // the web build: the browser's storage
+    #[cfg(target_arch = "wasm32")]
+    return crate::vfs::write_saved(path, bytes);
+    #[cfg(not(target_arch = "wasm32"))]
     {
-        let mut f = std::fs::File::create(&tmp)?;
-        f.write_all(bytes)?;
-        f.sync_all()?;
+        use std::io::Write;
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let mut tmp = path.as_os_str().to_owned();
+        tmp.push(".tmp");
+        let tmp = PathBuf::from(tmp);
+        {
+            let mut f = std::fs::File::create(&tmp)?;
+            f.write_all(bytes)?;
+            f.sync_all()?;
+        }
+        std::fs::rename(&tmp, path)
     }
-    std::fs::rename(&tmp, path)
 }
 
 #[cfg(test)]

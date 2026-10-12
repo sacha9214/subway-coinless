@@ -507,7 +507,27 @@ fn build_sim_at(paths: &DataPaths, args: &Args, start: bool) -> (Sim, KeyQueue) 
         sim.game.flow.user = ss_port::flow::UserData::load(&save);
         // the challenge starts on the tracks, not in the tutorial
         if args.coinless {
-            sim.game.flow.user.tutorial = true;
+            let u = &mut sim.game.flow.user;
+            u.tutorial = true;
+            // every character, outfit, board and board power is free
+            let catalog = ss_port::shop::Catalog::get();
+            let mut own = |list: &mut Vec<String>, id: String| {
+                if !list.contains(&id) {
+                    list.push(id);
+                }
+            };
+            for c in &catalog.characters {
+                own(&mut u.owned_characters, c.id.clone());
+                for k in 1..=c.outfits.len() {
+                    own(&mut u.owned_outfits, format!("{}-outfit-{k}", c.id));
+                }
+            }
+            for b in &catalog.boards {
+                own(&mut u.owned_boards, b.id.clone());
+                for p in &b.powerups {
+                    own(&mut u.owned_boards, format!("{}~{}", b.id, p.id));
+                }
+            }
         }
         // a character this build does not have (a save from a version with
         // extra characters): back to Jake
@@ -982,6 +1002,8 @@ fn step_sim(
         for c in &ss_port::playback::CHALLENGE {
             c.store(0, std::sync::atomic::Ordering::Relaxed);
         }
+        // (the look picked in the Me panel goes on to the next game)
+        sim.game.flow.save_user();
         let (fresh, q) = build_sim_at(&paths, &args, next == 2);
         *sim = fresh;
         info!("[Challenge] next {next}: seed {seed}, state {:?}", sim.game.state);
