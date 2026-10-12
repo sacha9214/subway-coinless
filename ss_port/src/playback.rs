@@ -68,3 +68,6 @@ pub static CHALLENGE: [AtomicI64; 4] = [AtomicI64::new(0), AtomicI64::new(0), At
 /// The challenge's run on record: its seed and the keys pressed (frame,
 /// key letter), so that a saved run can be played again.
 pub static RECORD: std::sync::Mutex<(i32, Vec<(i64, char)>)> = std::sync::Mutex::new((0, Vec::new()));
+
+/// What the page's end-of-run panel asks for: 1 back to the title, 2 a new run at once.
+pub static NEXT: AtomicI64 = AtomicI64::new(0);

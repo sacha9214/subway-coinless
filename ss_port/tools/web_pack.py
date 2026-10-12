@@ -78,6 +78,8 @@ def main():
         # the server side (Vercel functions) and its settings
         shutil.copytree(os.path.join(PORT, "web/api"), os.path.join(dest, "api"), dirs_exist_ok=True)
         shutil.copyfile(os.path.join(PORT, "web/vercel.json"), os.path.join(dest, "vercel.json"))
+        # the game's own font, for the page's end-of-run panel
+        shutil.copyfile(os.path.join(PORT, "assets/fonts/lilita-one.ttf"), os.path.join(dest, "lilita-one.ttf"))
         for f in ("index.html", "runs.json"):
             shutil.copyfile(os.path.join(PORT, "web", f), os.path.join(dest, f))
         print(f"{dest}: page, textures and sounds")

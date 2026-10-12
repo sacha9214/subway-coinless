@@ -133,6 +133,12 @@ mod web {
         let c = &CHALLENGE;
         vec![c[0].load(Relaxed) as f64, c[1].load(Relaxed) as f64 / 100.0, c[2].load(Relaxed) as f64, c[3].load(Relaxed) as f64]
     }
+    /// The end-of-run panel's buttons: back to the title (`again` false) or
+    /// a new run at once.
+    #[wasm_bindgen]
+    pub fn next(again: bool) {
+        NEXT.store(if again { 2 } else { 1 }, Relaxed);
+    }
     /// The run on record: `seed frames keys`, the keys as `frame` + letter
     /// (u, d, l, r) joined by commas.
     #[wasm_bindgen]
@@ -875,9 +881,11 @@ fn coinless(sim: &mut Sim) {
         g.god = false;
         ss_port::hero::player_die(g, "bounce");
     }
-    // one life: no Save me (reviving after a coin would end at once, and
-    // its keys button leads to a shop the challenge does not have)
-    ss_port::flow::decline_revive(g);
+    // one life: the run is over, and the page shows its own panel (home,
+    // play again) in place of the game's Save me and results screens
+    if g.state == GameState::Gameover {
+        g.flow.screen = ss_port::flow::Screen::None;
+    }
     let c = &ss_port::playback::CHALLENGE;
     if running {
         ss_port::playback::FRAME.store(g.frame, Relaxed);
@@ -937,6 +945,21 @@ fn step_sim(
         }
         rebuild_with_seed(&mut sim, &mut keys, &paths, &mut args, seed);
         info!("[Seed] Restart with seed {seed}");
+    }
+    // the challenge's panel: back to the title, or a new run at once; either
+    // way a fresh boot of a new seed (the seed and the keys are the whole run)
+    let next = ss_port::playback::NEXT.swap(0, std::sync::atomic::Ordering::Relaxed);
+    if args.coinless && next != 0 {
+        let seed = (args.seed.wrapping_mul(1_103_515_245).wrapping_add(12_345) & 0x7fff_ffff) % 1_000_000;
+        args.seed = seed;
+        *ss_port::playback::RECORD.lock().unwrap() = (seed, Vec::new());
+        for c in &ss_port::playback::CHALLENGE {
+            c.store(0, std::sync::atomic::Ordering::Relaxed);
+        }
+        let (fresh, q) = build_sim_at(&paths, &args, next == 2);
+        *sim = fresh;
+        keys.0 = q;
+        clock.acc = 0.0;
     }
     // a keys file plays like a video: speed, pause, seeking (`ss_port::playback`)
     let mut speed = 1.0;
