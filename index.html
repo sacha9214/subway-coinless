@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coinless Surfers</title>
+<meta name="description" content="Subway Surfers upside down: touch a single coin and the run is over. How far can you get?">
+<style>
+  :root { --bg: #0e1116; --panel: #171b22; --line: #2a303a; --text: #e8ebf0; --dim: #9aa4b2; --accent: #ffc83d; --bad: #ff6b5e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1000px; margin: 0 auto; padding: 28px 16px 48px; }
+  h1 { font-size: clamp(1.5rem, 4vw, 2.2rem); line-height: 1.15; margin: 0 0 6px; }
+  h1 b { color: var(--accent); }
+  p { margin: 0 0 14px; }
+  .lead { color: var(--dim); max-width: 62ch; }
+  .stage { position: relative; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 20px 0 12px; touch-action: none; }
+  .stage canvas { display: block; width: 100%; height: 100%; outline: none; }
+  #status { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--dim); background: #000; }
+  #status.hidden { display: none; }
+  #verdict { position: absolute; left: 50%; top: 12%; transform: translateX(-50%); padding: 0.3em 0.9em; border-radius: 8px; background: rgba(0, 0, 0, 0.78); color: var(--bad); font-weight: 700; font-size: clamp(1rem, 3.4vw, 1.6rem); white-space: nowrap; pointer-events: none; }
+  #verdict[hidden] { display: none; }
+  .board { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .board div { flex: 1 1 130px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; }
+  .board small { display: block; color: var(--dim); }
+  .board b { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+  .bar a, .bar button { font: inherit; color: var(--text); text-decoration: none; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+  .bar a:hover, .bar button:hover { border-color: var(--dim); }
+  .bar .on { border-color: var(--accent); color: var(--accent); }
+  h2 { font-size: 1.1rem; margin: 26px 0 8px; }
+  .text { max-width: 68ch; }
+  kbd { background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; font: inherit; }
+  a { color: var(--accent); }
+  footer { color: var(--dim); font-size: 0.9rem; margin-top: 34px; max-width: 68ch; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Coinless Surfers: touch <b>one coin</b> and it's over</h1>
+  <p class="lead">Subway Surfers upside down. Run as far as you can without picking up a single coin. Every visit is a new track.</p>
+
+  <div class="stage" id="stage">
+    <canvas id="game" tabindex="0"></canvas>
+    <div id="verdict" hidden>You touched a coin!</div>
+    <div id="status">Loading the game (about 25 MB)…</div>
+  </div>
+
+  <div class="board">
+    <div><small>Score</small><b id="score">0</b></div>
+    <div><small>Time</small><b id="time">0:00</b></div>
+    <div><small>Your best</small><b id="best">0</b></div>
+  </div>
+
+  <div class="bar">
+    <button id="again">New run</button>
+    <a href="" id="sound">Sound: off</a>
+  </div>
+
+  <h2>How to play</h2>
+  <div class="text">
+    <p>Click the game, then press <kbd>Space</kbd> or click PLAY. <kbd>←</kbd> <kbd>→</kbd> change lane, <kbd>↑</kbd> jumps, <kbd>↓</kbd> rolls. On a phone, swipe.</p>
+    <p>Crashing ends the run as usual. So does a coin: the first one you touch stops you dead. Magnets are a trap, and so is anything that pulls coins toward you.</p>
+    <p>A bot plays this challenge too, for over an hour: <a href="https://sacha9214.github.io/subway-nocoin/">watch its runs</a>.</p>
+  </div>
+
+  <footer>Unofficial fan project, not affiliated with SYBO Games, Kiloo or Poki. Subway Surfers and its artwork are © SYBO Games. The game on this page is a Rust port of the web version by <a href="https://github.com/zebmeow/SubwaySurfers">zebmeow</a>, with the coin rule added.</footer>
+</main>
+<script type="module">
+  const $ = (id) => document.getElementById(id);
+  // silent unless asked: the page must not cut in on what the visitor is listening to
+  const sound = new URLSearchParams(location.search).get("sound") === "1";
+  $("sound").textContent = "Sound: " + (sound ? "on" : "off");
+  $("sound").classList.toggle("on", sound);
+  $("sound").href = sound ? "?" : "?sound=1";
+  $("again").onclick = () => location.reload();
+
+  const game = await import("./game.js");
+  game.default().catch((e) => {
+    // the engine leaves its start-up through an exception: that one is not a failure
+    if (String(e).includes("Using exceptions for control flow")) return;
+    $("status").classList.remove("hidden");
+    $("status").textContent = "The game could not start in this browser: " + e;
+  });
+  const canvas = $("game");
+  const shown = setInterval(() => {
+    if (canvas.width > 300) {
+      $("status").classList.add("hidden");
+      canvas.focus();
+      clearInterval(shown);
+    }
+  }, 200);
+
+  // swipes and taps play the keys
+  const press = (key, code) => {
+    for (const type of ["keydown", "keyup"]) canvas.dispatchEvent(new KeyboardEvent(type, { key, code, bubbles: true }));
+  };
+  let from = null;
+  $("stage").addEventListener("touchstart", (e) => { from = [e.touches[0].clientX, e.touches[0].clientY]; }, { passive: true });
+  $("stage").addEventListener("touchend", (e) => {
+    if (!from) return;
+    const dx = e.changedTouches[0].clientX - from[0], dy = e.changedTouches[0].clientY - from[1];
+    from = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) press(" ", "Space");
+    else if (Math.abs(dx) > Math.abs(dy)) dx > 0 ? press("ArrowRight", "ArrowRight") : press("ArrowLeft", "ArrowLeft");
+    else dy > 0 ? press("ArrowDown", "ArrowDown") : press("ArrowUp", "ArrowUp");
+  }, { passive: true });
+  // the arrows play the game, not the page's scroll
+  addEventListener("keydown", (e) => {
+    if (["ArrowUp", "ArrowDown", " "].includes(e.key) && e.target === canvas) e.preventDefault();
+  });
+
+  // the run's numbers, and the best score on this device
+  let best = 0;
+  try { best = Number(localStorage.getItem("best")) || 0; } catch {}
+  $("best").textContent = best;
+  setInterval(() => {
+    let c;
+    try { c = game.challenge(); } catch { return; }
+    const [score, secs, running, coin] = c;
+    $("score").textContent = score;
+    $("time").textContent = Math.floor(secs / 60) + ":" + String(Math.floor(secs % 60)).padStart(2, "0");
+    $("verdict").hidden = !(coin && !running);
+    if (score > best) {
+      best = score;
+      $("best").textContent = best;
+      try { localStorage.setItem("best", best); } catch {}
+    }
+  }, 200);
+</script>
+</body>
+</html>
