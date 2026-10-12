@@ -865,8 +865,7 @@ fn inject(args: &Args, sim: &mut Sim, keys: &KeyQueue) {
 
 /// A fresh game of `seed`, its run started (the user's progress saved
 /// first and loaded again).
-/// The coinless challenge: the first coin ends the run (and a revive ends
-/// at once: the coin is still counted). The page reads the run's numbers.
+/// The coinless challenge: the first coin ends the run, and there is no revive. The page reads the run's numbers.
 fn coinless(sim: &mut Sim) {
     use ss_port::game::GameState;
     use std::sync::atomic::Ordering::Relaxed;
@@ -876,6 +875,9 @@ fn coinless(sim: &mut Sim) {
         g.god = false;
         ss_port::hero::player_die(g, "bounce");
     }
+    // one life: no Save me (reviving after a coin would end at once, and
+    // its keys button leads to a shop the challenge does not have)
+    ss_port::flow::decline_revive(g);
     let c = &ss_port::playback::CHALLENGE;
     if running {
         ss_port::playback::FRAME.store(g.frame, Relaxed);

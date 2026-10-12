@@ -311,6 +311,14 @@ fn save_me_exit(g: &mut Game) {
     }
 }
 
+/// The run is over without the offer to revive (the coinless challenge:
+/// one life): from Save me, or its "not enough keys" popup, on to the results.
+pub fn decline_revive(g: &mut Game) {
+    if matches!(g.flow.screen, Screen::SaveMe { .. } | Screen::NotEnough { .. }) {
+        save_me_exit(g);
+    }
+}
+
 /// What a UI click hit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Click {
