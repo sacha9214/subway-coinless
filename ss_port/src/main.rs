@@ -130,11 +130,11 @@ mod web {
     pub fn seek(frame: f64) {
         SEEK.store(frame as i64, Relaxed);
     }
-    /// [score, seconds run, running, coin touched].
+    /// [score, seconds run, running, coin touched, settings panel open].
     #[wasm_bindgen]
     pub fn challenge() -> Vec<f64> {
         let c = &CHALLENGE;
-        vec![c[0].load(Relaxed) as f64, c[1].load(Relaxed) as f64 / 100.0, c[2].load(Relaxed) as f64, c[3].load(Relaxed) as f64]
+        vec![c[0].load(Relaxed) as f64, c[1].load(Relaxed) as f64 / 100.0, c[2].load(Relaxed) as f64, c[3].load(Relaxed) as f64, SETTINGS.load(Relaxed) as u8 as f64]
     }
     /// The end-of-run panel's buttons: back to the title (`again` false) or
     /// a new run at once.
@@ -947,6 +947,7 @@ fn coinless(sim: &mut Sim) {
         c[3].store((g.coins > 0) as i64, Relaxed);
     }
     c[2].store(running as i64, Relaxed);
+    ss_port::playback::SETTINGS.store(matches!(g.flow.overlay, Some(ss_port::menu::Overlay::Settings { prompt: false })), Relaxed);
 }
 
 fn rebuild_with_seed(sim: &mut Sim, keys: &mut Keys, paths: &DataPaths, args: &mut Args, seed: i32) {

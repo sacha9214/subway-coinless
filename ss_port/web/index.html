@@ -33,6 +33,22 @@
   #over .green { background: #5cc12b; box-shadow: 0 0.22em 0 #3b8a17; }
   #over .blue { background: #3f6fe0; box-shadow: 0 0.22em 0 #2748a3; }
   #over button:active { transform: translateY(0.12em); box-shadow: none; }
+  /* a fourth row in the game's Settings panel (under Privacy Policy), and the card it opens */
+  #keysrow { position: absolute; left: 37.1%; top: 59.6%; display: flex; align-items: center; gap: 0.55em; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; color: #1d4f8f; font: 400 clamp(0.65rem, 2.4vw, 1.45rem)/1.05 "Lilita One", "Arial Rounded MT Bold", system-ui, sans-serif; }
+  #keysrow[hidden] { display: none; }
+  #keysrow i { display: grid; place-items: center; width: 2.05em; height: 2.05em; background: #3a8fd0; color: #fff; font: 700 0.95em/1 system-ui, sans-serif; border: 0.14em solid #fff; outline: 0.07em solid #9aa3ad; border-radius: 0.2em; }
+  #keysrow small { display: block; font-size: 0.72em; color: #3a8fd0; }
+  #keys { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; background: rgba(10, 20, 40, 0.55); }
+  #keys[hidden] { display: none; }
+  #keys .card { width: min(80%, 22em); max-height: 96%; overflow: auto; padding: 0.6em 1.1em 0.8em; text-align: center; background: #fff; color: #1d4f8f; border: 0.22em solid #fff; outline: 0.16em solid #2f7fd6; border-radius: 1em; box-shadow: 0 0.5em 0 rgba(0, 0, 0, 0.3); font: 400 clamp(0.7rem, 2vw, 1.2rem)/1.2 "Lilita One", "Arial Rounded MT Bold", system-ui, sans-serif; }
+  #keys h3 { margin: 0; font: inherit; font-size: 1.25em; }
+  #keys p { margin: 0.15em 0 0.6em; font-size: 0.68em; color: #5a6f8c; min-height: 1.2em; }
+  #keys .binds { display: grid; grid-template-columns: 1fr 1.4fr; gap: 0.35em 0.6em; align-items: center; margin-bottom: 0.5em; text-align: right; }
+  #keys .binds button { padding: 0.3em 0.4em; font: inherit; color: #1d4f8f; background: #e6eef8; border: 0.1em solid #9bbbe6; border-radius: 0.45em; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #keys .binds button.wait { background: #ffe9a8; border-color: #f0a800; }
+  #keys .card > button { display: block; width: 100%; margin-top: 0.4em; padding: 0.38em; font: inherit; color: #fff; border: 0; border-radius: 0.6em; cursor: pointer; text-shadow: 0 0.07em 0 rgba(0, 0, 0, 0.3); }
+  #keys .green { background: #5cc12b; box-shadow: 0 0.22em 0 #3b8a17; }
+  #keys .blue { background: #3f6fe0; box-shadow: 0 0.22em 0 #2748a3; }
   /* a speedrun's timer and input display, over the game */
   #timer { position: absolute; left: 0; bottom: 0; padding: 0.1em 0.45em; background: rgba(0, 0, 0, 0.72); color: var(--good); font: 700 clamp(1rem, 4.2vw, 2.4rem)/1.2 ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; border-top-right-radius: 8px; pointer-events: none; }
   #pad { position: absolute; right: 1.5%; bottom: 3%; display: grid; grid-template: repeat(2, 1fr) / repeat(3, 1fr); gap: 3px; width: clamp(60px, 13%, 150px); aspect-ratio: 3 / 2; pointer-events: none; }
@@ -86,6 +102,21 @@
     </div>
     <div id="timer" aria-hidden="true">0:00.00</div>
     <div id="pad" aria-hidden="true"><i data-k="ArrowUp">&#9650;</i><i data-k="ArrowLeft">&#9664;</i><i data-k="ArrowDown">&#9660;</i><i data-k="ArrowRight">&#9654;</i></div>
+    <button id="keysrow" hidden><i>&#8644;</i><span><b>Keys</b><small id="keyssum">Arrows</small></span></button>
+    <div id="keys" hidden>
+      <div class="card">
+        <h3>Keys</h3>
+        <p id="keyshint">Click an action, then press the key you want.</p>
+        <div class="binds">
+          <span>Left</span><button data-a="ArrowLeft"></button>
+          <span>Right</span><button data-a="ArrowRight"></button>
+          <span>Jump</span><button data-a="ArrowUp"></button>
+          <span>Roll</span><button data-a="ArrowDown"></button>
+        </div>
+        <button id="keysreset" class="blue">Reset to arrows</button>
+        <button id="keysdone" class="green">Done</button>
+      </div>
+    </div>
     <div id="kps" aria-hidden="true"><span>INPUTS <b id="inputs">0</b></span><span>KPS <b id="rate">0</b></span><span>MAX <b id="peak">0</b></span></div>
     <button id="full" title="Full screen (F)">⤢</button>
     <div id="status">Loading the game (about 25 MB)…</div>
@@ -107,7 +138,7 @@
 
   <h2>How to play</h2>
   <div class="text">
-    <p>Click the game, then press <kbd>Space</kbd> or click PLAY. <kbd>←</kbd> <kbd>→</kbd> change lane, <kbd>↑</kbd> jumps, <kbd>↓</kbd> rolls, <kbd>F</kbd> goes full screen. On a phone, swipe.</p>
+    <p>Click the game, then press <kbd>Space</kbd> or click PLAY. <kbd>←</kbd> <kbd>→</kbd> change lane, <kbd>↑</kbd> jumps, <kbd>↓</kbd> rolls, <kbd>F</kbd> goes full screen. To use your own keys, open the gear on the title screen and pick Keys. On a phone, swipe.</p>
     <p>Crashing ends the run as usual. So does a coin: the first one you touch stops you dead. Magnets are a trap. You get one life: there is no revive. After a run, <kbd>Space</kbd> plays again and <kbd>H</kbd> goes back home.</p>
     <p>Every character, outfit and board is unlocked: pick yours in the game's ME menu.</p>
     <p>Sign in with Google to put your time on the leaderboard. Only the name you choose is shown. Each saved run keeps its track and its key presses, so it can be played back.</p>
@@ -170,6 +201,50 @@
   const label = () => { $("full").textContent = document.fullscreenElement || stage.classList.contains("fill") ? "⤡" : "⤢"; $("full").title = "Full screen (F)"; };
   document.addEventListener("fullscreenchange", label);
   new MutationObserver(label).observe(stage, { attributes: true, attributeFilter: ["class"] });
+
+  // ---- the player's own keys: any key can stand for an arrow (kept on this device)
+  const ARROWS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+  let binds = {};
+  try { binds = JSON.parse(store.get("keys") || "{}"); } catch {}
+  const keyName = (code) => (code || "").replace(/^Key|^Digit/, "").replace("Arrow", "").replace("Space", "Space bar") || "?";
+  const names = { ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓" };
+  let waiting = null;
+  const showBinds = () => {
+    for (const b of document.querySelectorAll("#keys .binds button")) {
+      const code = binds[b.dataset.a];
+      b.textContent = waiting === b.dataset.a ? "Press a key…" : code ? keyName(code) + " (and " + names[b.dataset.a] + ")" : names[b.dataset.a];
+      b.classList.toggle("wait", waiting === b.dataset.a);
+    }
+    const custom = ARROWS.filter((a) => binds[a]).map((a) => keyName(binds[a]));
+    $("keyssum").textContent = custom.length ? custom.join(" ") : "Arrows";
+  };
+  for (const b of document.querySelectorAll("#keys .binds button")) b.onclick = () => { waiting = b.dataset.a; showBinds(); };
+  $("keysrow").onclick = () => { $("keys").hidden = false; waiting = null; showBinds(); };
+  $("keysdone").onclick = () => { $("keys").hidden = true; waiting = null; $("game").focus(); };
+  $("keysreset").onclick = () => { binds = {}; store.set("keys", null); waiting = null; showBinds(); };
+  showBinds();
+  // before anything else sees the key: a key being chosen, or a chosen key played as its arrow
+  addEventListener("keydown", (e) => {
+    if (!e.isTrusted) return;
+    if (!$("keys").hidden) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (!waiting) { if (e.key === "Escape" || e.key === "Enter") $("keysdone").click(); return; }
+      if (e.key !== "Escape") {
+        for (const a of ARROWS) if (binds[a] === e.code) delete binds[a];
+        if (e.code === waiting) delete binds[waiting]; else binds[waiting] = e.code;
+        store.set("keys", JSON.stringify(binds));
+      }
+      waiting = null;
+      return showBinds();
+    }
+    const arrow = ARROWS.find((a) => binds[a] === e.code);
+    if (arrow && e.target.tagName !== "INPUT") {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (!e.repeat) press(arrow);
+    }
+  }, true);
 
   // ---- keys: the input display, swipes, and the page staying put
   const pad = Object.fromEntries([...document.querySelectorAll("#pad i")].map((i) => [i.dataset.k, i]));
@@ -331,6 +406,7 @@
     try { c = game.challenge(); } catch { return requestAnimationFrame(tick); }
     const [score, secs, running, coin] = c;
     $("timer").textContent = clock(secs);
+    $("keysrow").hidden = !c[4] || !$("keys").hidden;
     if (running) $("over").hidden = true;
     if (running && !wasRunning) resetCounters();
     if (wasRunning && !running && secs > 0) {
