@@ -10,7 +10,7 @@ The page has a full-screen mode, a timer and an input display. With its server (
 
 A bot plays the same challenge for over an hour: [subway-nocoin](https://github.com/sacha9214/subway-nocoin).
 
-Unofficial, non-commercial fan project. Subway Surfers and the game files in `oracle/site` are © SYBO Games / Kiloo. The port's README follows.
+The parts written for this project are under the MIT license ([LICENSE](LICENSE)); the port and the game's files are not. Unofficial, non-commercial fan project. Subway Surfers and the game files in `oracle/site` are © SYBO Games / Kiloo. The port's README follows.
 
 ---
 

@@ -1,0 +1,29 @@
+MIT License
+
+Copyright (c) 2026 Sacha (sacha9214)
+
+This license covers the parts of this repository written for Coinless Surfers
+and the no-coin planner: the coin rule and the challenge mode, the web build,
+the page, the server functions (ss_port/web), the playback controls and the
+planner (ss_port/src/bin/nocoin.rs). It does not cover the Rust port they are
+built on (by zebmeow, https://github.com/zebmeow/SubwaySurfers, published
+without a license) nor the original game's files in oracle/site, which are
+(c) SYBO Games / Kiloo.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
