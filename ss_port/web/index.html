@@ -42,6 +42,9 @@
   #pad i[data-k="ArrowDown"] { grid-area: 2 / 2; }
   #pad i[data-k="ArrowRight"] { grid-area: 2 / 3; }
   #pad i.on { background: var(--accent); color: #000; }
+  /* the input counters, small, left of the keys */
+  #kps { position: absolute; right: calc(1.5% + clamp(60px, 13%, 150px) + 8px); bottom: 3%; display: grid; gap: 1px; padding: 3px 7px; background: rgba(0, 0, 0, 0.55); border-radius: 4px; color: #8b95a3; font: 600 clamp(0.5rem, 1.25vw, 0.72rem)/1.25 ui-monospace, Menlo, Consolas, monospace; text-align: right; pointer-events: none; }
+  #kps b { display: inline-block; min-width: 2.6ch; color: #d5dbe3; font-variant-numeric: tabular-nums; }
   /* (on the left edge: the bottom and the top belong to the game's own buttons) */
   #full { position: absolute; left: 1%; top: 50%; transform: translateY(-50%); font: inherit; font-size: 0.8rem; color: var(--text); background: rgba(0, 0, 0, 0.6); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; cursor: pointer; opacity: 0.6; }
   #full:hover { opacity: 1; }
@@ -83,6 +86,7 @@
     </div>
     <div id="timer" aria-hidden="true">0:00.00</div>
     <div id="pad" aria-hidden="true"><i data-k="ArrowUp">&#9650;</i><i data-k="ArrowLeft">&#9664;</i><i data-k="ArrowDown">&#9660;</i><i data-k="ArrowRight">&#9654;</i></div>
+    <div id="kps" aria-hidden="true"><span>INPUTS <b id="inputs">0</b></span><span>KPS <b id="rate">0</b></span><span>MAX <b id="peak">0</b></span></div>
     <button id="full" title="Full screen (F)">⤢</button>
     <div id="status">Loading the game (about 25 MB)…</div>
   </div>
@@ -169,8 +173,26 @@
 
   // ---- keys: the input display, swipes, and the page staying put
   const pad = Object.fromEntries([...document.querySelectorAll("#pad i")].map((i) => [i.dataset.k, i]));
-  const flash = (key) => {
+  // inputs of the run: how many, per second now (the last second), and the most
+  const taps = [];
+  let inputs = 0, peak = 0;
+  const counters = () => {
+    const now = performance.now();
+    while (taps.length && now - taps[0] > 1000) taps.shift();
+    peak = Math.max(peak, taps.length);
+    $("inputs").textContent = inputs;
+    $("rate").textContent = taps.length;
+    $("peak").textContent = peak;
+  };
+  const resetCounters = () => { taps.length = 0; inputs = peak = 0; counters(); };
+  setInterval(counters, 100);
+  const flash = (key, repeat) => {
     if (!pad[key]) return;
+    if (!repeat) {
+      inputs++;
+      taps.push(performance.now());
+      counters();
+    }
     pad[key].classList.add("on");
     setTimeout(() => pad[key].classList.remove("on"), 140);
   };
@@ -179,7 +201,7 @@
     if (e.target.tagName === "INPUT") return;
     if (e.key === "f" || e.key === "F") return toggleFull();
     if (e.key === "Escape") stage.classList.remove("fill");
-    flash(wasd[e.key.toLowerCase()] || e.key);
+    flash(wasd[e.key.toLowerCase()] || e.key, e.repeat);
     if (["ArrowUp", "ArrowDown", " "].includes(e.key) && e.target === canvas) e.preventDefault();
   });
   const press = (key) => {
@@ -310,6 +332,7 @@
     const [score, secs, running, coin] = c;
     $("timer").textContent = clock(secs);
     if (running) $("over").hidden = true;
+    if (running && !wasRunning) resetCounters();
     if (wasRunning && !running && secs > 0) {
       // the run is over
       if (secs > best) {
