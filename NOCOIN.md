@@ -16,7 +16,7 @@ Runs with 0 coins, checked by replaying the keys through the game's own driver (
 | 1 | 50 min | 0 | 67685 | 7981 |
 | 2 | 48 min | 0 | 65154 | 7555 |
 | 5 | 15 min | 0 | 19344 | 2437 |
-| 4 | 13 min | 0 | 17124 | 2022 |
+| 4 | 13 min | 0 | 16111 | 2022 |
 
 For scale, the best human run on speedrun.com's mobile leaderboard (No Coins, no hoverboard, no keys) lasts 2 h 37 min.
 
