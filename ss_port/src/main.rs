@@ -58,6 +58,9 @@ struct Args {
     mute: bool,
     /// `--coinless`: the challenge, a coin ends the run.
     coinless: bool,
+    /// `--catch-up`: after a long gap between two updates the game plays the
+    /// whole gap (up to 30 s) instead of a quarter of a second.
+    catch_up: bool,
     /// `--keys FILE`: play a keys file (the no-coin planner's output).
     keys: Option<PathBuf>,
     screenshot: Option<PathBuf>,
@@ -166,7 +169,9 @@ fn command_line() -> Vec<String> {
         // `?god=1`: nothing but a coin stops the run (to try the coin rule)
         let god = if query.contains("god=1") { "--god" } else { "--mortal" };
         *ss_port::playback::RECORD.lock().unwrap() = (seed.parse().unwrap_or(0), Vec::new());
-        return ["ss_port", "--vsync", sound, god, "--coinless", "--lock-seed", "--seed", &seed].map(String::from).to_vec();
+        // `?catchup=1`: the game keeps real time in a hidden tab (trials driven from a background tab)
+        let catch_up = if query.contains("catchup=1") { "--catch-up" } else { "--no-catch-up" };
+        return ["ss_port", "--vsync", sound, god, catch_up, "--coinless", "--lock-seed", "--seed", &seed].map(String::from).to_vec();
     }
     #[cfg(not(target_arch = "wasm32"))]
     std::env::args().collect()
@@ -189,6 +194,7 @@ fn parse_args(inst: &Install) -> Args {
         keys: get("--keys").map(PathBuf::from),
         mute: has("--mute"),
         coinless: has("--coinless"),
+        catch_up: has("--catch-up"),
         screenshot: get("--screenshot").map(PathBuf::from).or_else(|| get("--dump-frames").map(|d| PathBuf::from(d).join("last.png"))),
         dump_frames: get("--dump-frames").map(PathBuf::from),
         from: get("--from").and_then(|v| v.parse().ok()).unwrap_or(0),
@@ -885,6 +891,25 @@ fn coinless(sim: &mut Sim) {
     // play again) in place of the game's Save me and results screens
     if g.state == GameState::Gameover {
         g.flow.screen = ss_port::flow::Screen::None;
+        // desktop trials (SS_TRIAL_NEXT=1 home, 2 again): the page's button, two seconds after the end
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(n) = std::env::var("SS_TRIAL_NEXT").ok().and_then(|v| v.parse::<i64>().ok()) {
+            static OVER: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+            if OVER.fetch_add(1, Relaxed) == 120 {
+                ss_port::playback::NEXT.store(n, Relaxed);
+                println!("[trial] next {n} at frame {}", g.frame);
+            }
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    if std::env::var_os("SS_TRIAL_NEXT").is_some() {
+        static LAST: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+        let now = format!("{:?} menu {:?} enabled {}", g.state, g.flow.menu, g.controller.enabled);
+        let mut last = LAST.lock().unwrap();
+        if *last != now {
+            println!("[trial] frame {}: {now}", g.frame);
+            *last = now;
+        }
     }
     let c = &ss_port::playback::CHALLENGE;
     if running {
@@ -917,6 +942,7 @@ fn step_sim(
     mut blend: ResMut<ss_port::render::RenderBlend>,
     mut dump: ResMut<DumpState>,
     mut snapshots: NonSendMut<ss_port::playback::Snapshots>,
+    real: Res<Time<Real>>,
 ) {
     // (results PLAY / Menu and the pause panel reset the game in place)
     let _ = &paths;
@@ -958,6 +984,7 @@ fn step_sim(
         }
         let (fresh, q) = build_sim_at(&paths, &args, next == 2);
         *sim = fresh;
+        info!("[Challenge] next {next}: seed {seed}, state {:?}", sim.game.state);
         keys.0 = q;
         clock.acc = 0.0;
     }
@@ -973,13 +1000,16 @@ fn step_sim(
         speed = ss_port::playback::speed();
         ss_port::playback::FRAME.store(sim.next_frame, Relaxed);
     }
-    clock.acc = (clock.acc + time.delta_secs() * speed).min(0.25 * speed.max(1.0));
+    let (delta, most) = if args.catch_up { (real.delta_secs(), 30.0) } else { (time.delta_secs(), 0.25) };
+    clock.acc = (clock.acc + delta * speed).min(most * speed.max(1.0));
     while clock.acc >= 1.0 / 60.0 {
         clock.acc -= 1.0 / 60.0;
         if !sim.finished {
             if args.keys.is_some() {
                 snapshots.keep(&sim);
             }
+            // `--press KEY@FRAME` also in play (trials without a hand on the keyboard)
+            inject(&args, &mut sim, &keys.0);
             sim.step();
             if args.keys.is_some() {
                 sim.forget_log();

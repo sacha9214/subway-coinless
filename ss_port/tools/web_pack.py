@@ -6,6 +6,7 @@ to a folder to publish.
     python3 tools/web_pack.py            # web/pack.bin
     python3 tools/web_pack.py --site DIR # also DIR/site/... (after the wasm build)
 """
+import hashlib
 import json
 import os
 import shutil
@@ -80,8 +81,12 @@ def main():
         shutil.copyfile(os.path.join(PORT, "web/vercel.json"), os.path.join(dest, "vercel.json"))
         # the game's own font, for the page's end-of-run panel
         shutil.copyfile(os.path.join(PORT, "assets/fonts/lilita-one.ttf"), os.path.join(dest, "lilita-one.ttf"))
-        for f in ("index.html", "runs.json"):
-            shutil.copyfile(os.path.join(PORT, "web", f), os.path.join(dest, f))
+        shutil.copyfile(os.path.join(PORT, "web/runs.json"), os.path.join(dest, "runs.json"))
+        # the page, stamped with the game it goes with (`__BUILD__`: the hash of the wasm file, when there is one)
+        page = open(os.path.join(PORT, "web/index.html")).read()
+        wasm = os.path.join(dest, "game_bg.wasm")
+        stamp = hashlib.sha256(open(wasm, "rb").read()).hexdigest()[:12] if os.path.exists(wasm) else "dev"
+        open(os.path.join(dest, "index.html"), "w").write(page.replace("__BUILD__", stamp))
         print(f"{dest}: page, textures and sounds")
 
 
