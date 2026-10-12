@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Coinless Surfers</title>
-<meta name="description" content="Subway Surfers upside down: touch a single coin and the run is over. How far can you get?">
+<meta name="description" content="Subway Surfers upside down: touch a single coin and the run is over. How long can you last?">
 <style>
-  :root { --bg: #0e1116; --panel: #171b22; --line: #2a303a; --text: #e8ebf0; --dim: #9aa4b2; --accent: #ffc83d; --bad: #ff6b5e; }
+  :root { --bg: #0e1116; --panel: #171b22; --line: #2a303a; --text: #e8ebf0; --dim: #9aa4b2; --accent: #ffc83d; --bad: #ff6b5e; --good: #7dffb0; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
   main { max-width: 1000px; margin: 0 auto; padding: 28px 16px 48px; }
@@ -16,20 +16,39 @@
   .lead { color: var(--dim); max-width: 62ch; }
   .stage { position: relative; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 20px 0 12px; touch-action: none; }
   .stage canvas { display: block; width: 100%; height: 100%; outline: none; }
+  /* full screen: the real thing where the browser has it, the whole window elsewhere (iPhone) */
+  .stage:fullscreen { border: 0; border-radius: 0; aspect-ratio: auto; width: 100vw; height: 100vh; }
+  .stage.fill { position: fixed; inset: 0; z-index: 10; margin: 0; border: 0; border-radius: 0; aspect-ratio: auto; }
   #status { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--dim); background: #000; }
   #status.hidden { display: none; }
   #verdict { position: absolute; left: 50%; top: 12%; transform: translateX(-50%); padding: 0.3em 0.9em; border-radius: 8px; background: rgba(0, 0, 0, 0.78); color: var(--bad); font-weight: 700; font-size: clamp(1rem, 3.4vw, 1.6rem); white-space: nowrap; pointer-events: none; }
   #verdict[hidden] { display: none; }
-  .board { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-  .board div { flex: 1 1 130px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; }
-  .board small { display: block; color: var(--dim); }
-  .board b { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
-  .bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+  /* a speedrun's timer and input display, over the game */
+  #timer { position: absolute; left: 0; bottom: 0; padding: 0.1em 0.45em; background: rgba(0, 0, 0, 0.72); color: var(--good); font: 700 clamp(1rem, 4.2vw, 2.4rem)/1.2 ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; border-top-right-radius: 8px; pointer-events: none; }
+  #pad { position: absolute; right: 1.5%; bottom: 3%; display: grid; grid-template: repeat(2, 1fr) / repeat(3, 1fr); gap: 3px; width: clamp(60px, 13%, 150px); aspect-ratio: 3 / 2; pointer-events: none; }
+  #pad i { display: grid; place-items: center; background: rgba(0, 0, 0, 0.72); color: #555; font-style: normal; font-size: clamp(0.6rem, 1.8vw, 1.2rem); border-radius: 4px; }
+  #pad i[data-k="ArrowUp"] { grid-area: 1 / 2; }
+  #pad i[data-k="ArrowLeft"] { grid-area: 2 / 1; }
+  #pad i[data-k="ArrowDown"] { grid-area: 2 / 2; }
+  #pad i[data-k="ArrowRight"] { grid-area: 2 / 3; }
+  #pad i.on { background: var(--accent); color: #000; }
+  #full { position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); font: inherit; font-size: 0.85rem; color: var(--text); background: rgba(0, 0, 0, 0.72); border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px; cursor: pointer; opacity: 0.75; }
+  #full:hover { opacity: 1; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
   .bar a, .bar button { font: inherit; color: var(--text); text-decoration: none; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
   .bar a:hover, .bar button:hover { border-color: var(--dim); }
   .bar .on { border-color: var(--accent); color: var(--accent); }
+  .bar .who { color: var(--dim); }
+  #saved { min-height: 1.6em; color: var(--good); margin-bottom: 18px; }
+  #saved.bad { color: var(--bad); }
   h2 { font-size: 1.1rem; margin: 26px 0 8px; }
+  table { border-collapse: collapse; width: 100%; max-width: 560px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  th:nth-child(2), td:nth-child(2) { text-align: left; }
+  th { color: var(--dim); font-weight: 500; }
+  tr.me td { color: var(--accent); }
   .text { max-width: 68ch; }
+  .dim { color: var(--dim); }
   kbd { background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; font: inherit; }
   a { color: var(--accent); }
   footer { color: var(--dim); font-size: 0.9rem; margin-top: 34px; max-width: 68ch; }
@@ -38,29 +57,36 @@
 <body>
 <main>
   <h1>Coinless Surfers: touch <b>one coin</b> and it's over</h1>
-  <p class="lead">Subway Surfers upside down. Run as far as you can without picking up a single coin. Every visit is a new track.</p>
+  <p class="lead">Subway Surfers upside down. Last as long as you can without picking up a single coin. Every run is a new track.</p>
 
   <div class="stage" id="stage">
     <canvas id="game" tabindex="0"></canvas>
     <div id="verdict" hidden>You touched a coin!</div>
+    <div id="timer" aria-hidden="true">0:00.00</div>
+    <div id="pad" aria-hidden="true"><i data-k="ArrowUp">&#9650;</i><i data-k="ArrowLeft">&#9664;</i><i data-k="ArrowDown">&#9660;</i><i data-k="ArrowRight">&#9654;</i></div>
+    <button id="full" title="Full screen (F)">Full screen</button>
     <div id="status">Loading the game (about 25 MB)…</div>
   </div>
 
-  <div class="board">
-    <div><small>Score</small><b id="score">0</b></div>
-    <div><small>Time</small><b id="time">0:00</b></div>
-    <div><small>Your best</small><b id="best">0</b></div>
-  </div>
-
   <div class="bar">
-    <button id="again">New run</button>
+    <span id="signin"></span>
+    <span id="account" hidden><span class="who">Playing as</span> <button id="rename" title="Change the name on the leaderboard"></button> <button id="signout">Sign out</button></span>
     <a href="" id="sound">Sound: off</a>
   </div>
+  <div id="saved"></div>
+
+  <h2>Leaderboard</h2>
+  <table id="board">
+    <tr><th>#</th><th>Player</th><th>Time</th><th>Score</th></tr>
+  </table>
+  <p class="dim" id="empty" hidden>No run saved yet. Be the first.</p>
+  <p class="dim">Your best on this device: <span id="best">0:00.00</span></p>
 
   <h2>How to play</h2>
   <div class="text">
-    <p>Click the game, then press <kbd>Space</kbd> or click PLAY. <kbd>←</kbd> <kbd>→</kbd> change lane, <kbd>↑</kbd> jumps, <kbd>↓</kbd> rolls. On a phone, swipe.</p>
-    <p>Crashing ends the run as usual. So does a coin: the first one you touch stops you dead. Magnets are a trap, and so is anything that pulls coins toward you.</p>
+    <p>Click the game, then press <kbd>Space</kbd> or click PLAY. <kbd>←</kbd> <kbd>→</kbd> change lane, <kbd>↑</kbd> jumps, <kbd>↓</kbd> rolls, <kbd>F</kbd> goes full screen. On a phone, swipe.</p>
+    <p>Crashing ends the run as usual. So does a coin: the first one you touch stops you dead. Magnets are a trap.</p>
+    <p>Sign in with Google to put your time on the leaderboard. Only the name you choose is shown. Each saved run keeps its track and its key presses, so it can be played back.</p>
     <p>A bot plays this challenge too, for over an hour: <a href="https://sacha9214.github.io/subway-nocoin/">watch its runs</a>.</p>
   </div>
 
@@ -68,13 +94,19 @@
 </main>
 <script type="module">
   const $ = (id) => document.getElementById(id);
+  const store = {
+    get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+    set: (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
+  };
+  const clock = (t) => Math.floor(t / 60) + ":" + (t % 60).toFixed(2).padStart(5, "0");
+
   // silent unless asked: the page must not cut in on what the visitor is listening to
   const sound = new URLSearchParams(location.search).get("sound") === "1";
   $("sound").textContent = "Sound: " + (sound ? "on" : "off");
   $("sound").classList.toggle("on", sound);
   $("sound").href = sound ? "?" : "?sound=1";
-  $("again").onclick = () => location.reload();
 
+  // ---- the game
   const game = await import("./game.js");
   game.default().catch((e) => {
     // the engine leaves its start-up through an exception: that one is not a failure
@@ -82,7 +114,7 @@
     $("status").classList.remove("hidden");
     $("status").textContent = "The game could not start in this browser: " + e;
   });
-  const canvas = $("game");
+  const canvas = $("game"), stage = $("stage");
   const shown = setInterval(() => {
     if (canvas.width > 300) {
       $("status").classList.add("hidden");
@@ -91,42 +123,173 @@
     }
   }, 200);
 
-  // swipes and taps play the keys
-  const press = (key, code) => {
-    for (const type of ["keydown", "keyup"]) canvas.dispatchEvent(new KeyboardEvent(type, { key, code, bubbles: true }));
+  // ---- full screen
+  const toggleFull = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (stage.requestFullscreen) stage.requestFullscreen().catch(() => stage.classList.toggle("fill"));
+    else stage.classList.toggle("fill");
+    canvas.focus();
   };
-  let from = null;
-  $("stage").addEventListener("touchstart", (e) => { from = [e.touches[0].clientX, e.touches[0].clientY]; }, { passive: true });
-  $("stage").addEventListener("touchend", (e) => {
-    if (!from) return;
-    const dx = e.changedTouches[0].clientX - from[0], dy = e.changedTouches[0].clientY - from[1];
-    from = null;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) press(" ", "Space");
-    else if (Math.abs(dx) > Math.abs(dy)) dx > 0 ? press("ArrowRight", "ArrowRight") : press("ArrowLeft", "ArrowLeft");
-    else dy > 0 ? press("ArrowDown", "ArrowDown") : press("ArrowUp", "ArrowUp");
-  }, { passive: true });
-  // the arrows play the game, not the page's scroll
+  $("full").onclick = toggleFull;
+  const label = () => { $("full").textContent = document.fullscreenElement || stage.classList.contains("fill") ? "Exit full screen" : "Full screen"; };
+  document.addEventListener("fullscreenchange", label);
+  new MutationObserver(label).observe(stage, { attributes: true, attributeFilter: ["class"] });
+
+  // ---- keys: the input display, swipes, and the page staying put
+  const pad = Object.fromEntries([...document.querySelectorAll("#pad i")].map((i) => [i.dataset.k, i]));
+  const flash = (key) => {
+    if (!pad[key]) return;
+    pad[key].classList.add("on");
+    setTimeout(() => pad[key].classList.remove("on"), 140);
+  };
+  const wasd = { w: "ArrowUp", a: "ArrowLeft", s: "ArrowDown", d: "ArrowRight" };
   addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT") return;
+    if (e.key === "f" || e.key === "F") return toggleFull();
+    if (e.key === "Escape") stage.classList.remove("fill");
+    flash(wasd[e.key.toLowerCase()] || e.key);
     if (["ArrowUp", "ArrowDown", " "].includes(e.key) && e.target === canvas) e.preventDefault();
   });
+  const press = (key) => {
+    for (const type of ["keydown", "keyup"]) canvas.dispatchEvent(new KeyboardEvent(type, { key, code: key === " " ? "Space" : key, bubbles: true }));
+  };
+  let from = null;
+  stage.addEventListener("touchstart", (e) => { from = [e.touches[0].clientX, e.touches[0].clientY]; }, { passive: true });
+  stage.addEventListener("touchend", (e) => {
+    if (!from || e.target === $("full")) return;
+    const dx = e.changedTouches[0].clientX - from[0], dy = e.changedTouches[0].clientY - from[1];
+    from = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) press(" ");
+    else if (Math.abs(dx) > Math.abs(dy)) press(dx > 0 ? "ArrowRight" : "ArrowLeft");
+    else press(dy > 0 ? "ArrowDown" : "ArrowUp");
+  }, { passive: true });
 
-  // the run's numbers, and the best score on this device
-  let best = 0;
-  try { best = Number(localStorage.getItem("best")) || 0; } catch {}
-  $("best").textContent = best;
-  setInterval(() => {
-    let c;
-    try { c = game.challenge(); } catch { return; }
-    const [score, secs, running, coin] = c;
-    $("score").textContent = score;
-    $("time").textContent = Math.floor(secs / 60) + ":" + String(Math.floor(secs % 60)).padStart(2, "0");
-    $("verdict").hidden = !(coin && !running);
-    if (score > best) {
-      best = score;
-      $("best").textContent = best;
-      try { localStorage.setItem("best", best); } catch {}
+  // ---- the account (a Google sign-in, kept as a session of this site)
+  const api = async (path, body) => {
+    const res = await fetch("/api/" + path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : undefined);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(data.error || "The server did not answer"), { status: res.status });
+    return data;
+  };
+  let session = store.get("session"), name = store.get("name");
+  const say = (text, bad) => { $("saved").textContent = text; $("saved").classList.toggle("bad", !!bad); };
+  const account = () => {
+    $("account").hidden = !session;
+    $("signin").hidden = !!session;
+    $("rename").textContent = name || "Player";
+  };
+  const signedIn = async (credential) => {
+    try {
+      const a = await api("auth", { credential });
+      [session, name] = [a.token, a.name];
+      store.set("session", session);
+      store.set("name", name);
+      account();
+      say("Signed in. Your runs are saved from now on.");
+      await save();
+      board();
+    } catch (e) {
+      say(e.message, true);
     }
-  }, 200);
+  };
+  $("signout").onclick = () => {
+    session = name = null;
+    store.set("session", null);
+    store.set("name", null);
+    account();
+    say("");
+    board();
+  };
+  $("rename").onclick = async () => {
+    const wanted = prompt("Name on the leaderboard (2 to 20 letters or digits)", name || "");
+    if (!wanted) return;
+    try {
+      name = (await api("name", { token: session, name: wanted })).name;
+      store.set("name", name);
+      account();
+      board();
+    } catch (e) {
+      say(e.message, true);
+    }
+  };
+  account();
+  api("config").then((config) => {
+    if (config.dev) {
+      // local trials (web/dev-server.js): a sign-in without Google
+      const b = document.createElement("button");
+      b.textContent = "Sign in (local trial)";
+      b.onclick = () => signedIn("dev:" + (prompt("Name", "Tester") || "Tester"));
+      $("signin").append(b);
+    } else if (config.googleClientId) {
+      const s = document.createElement("script");
+      s.src = "https://accounts.google.com/gsi/client";
+      s.onload = () => {
+        google.accounts.id.initialize({ client_id: config.googleClientId, callback: (r) => signedIn(r.credential) });
+        google.accounts.id.renderButton($("signin"), { theme: "filled_black", size: "medium", text: "signin_with", shape: "pill" });
+      };
+      document.head.append(s);
+    } else {
+      $("signin").textContent = "Sign-in is not set up on this copy of the site.";
+      $("signin").className = "dim";
+    }
+  }).catch(() => {
+    $("signin").textContent = "The leaderboard needs the site's server (it is not on this copy).";
+    $("signin").className = "dim";
+  });
+
+  // ---- the leaderboard
+  async function board() {
+    let runs;
+    try { runs = (await api("leaderboard")).runs; } catch { return; }
+    const table = $("board");
+    while (table.rows.length > 1) table.deleteRow(1);
+    $("empty").hidden = runs.length > 0;
+    runs.forEach((run, i) => {
+      const row = table.insertRow();
+      for (const v of [i + 1, run.name, clock(run.time), run.score]) row.insertCell().textContent = v;
+      row.classList.toggle("me", !!session && run.name === name);
+    });
+  }
+  board();
+
+  // ---- the run: its numbers, and saving it when it ends
+  let best = Number(store.get("best")) || 0, wasRunning = false, pending = null;
+  $("best").textContent = clock(best);
+  async function save() {
+    if (!pending || !session) return;
+    const run = pending;
+    pending = null;
+    try {
+      const r = await api("run", { token: session, ...run });
+      say((r.improved ? "New best saved: " : "Run saved. Your best stays ") + clock(r.best) + ", rank " + r.rank + " of " + r.players + ".");
+      board();
+    } catch (e) {
+      if (e.status === 401) $("signout").click();
+      say(e.status === 401 ? "Your sign-in ran out: sign in again to save runs." : "The run was not saved: " + e.message, true);
+    }
+  }
+  const tick = () => {
+    let c;
+    try { c = game.challenge(); } catch { return requestAnimationFrame(tick); }
+    const [score, secs, running, coin] = c;
+    $("timer").textContent = clock(secs);
+    $("verdict").hidden = !(coin && !running);
+    if (wasRunning && !running && secs > 0) {
+      // the run is over
+      if (secs > best) {
+        best = secs;
+        store.set("best", String(best));
+        $("best").textContent = clock(best);
+      }
+      const [seed, frames, keys] = game.record().split(" ");
+      pending = { seed: Number(seed), frames: Number(frames), time: secs, score, keys: keys || "" };
+      if (session) save();
+      else say("Sign in with Google to put " + clock(secs) + " on the leaderboard.");
+    }
+    wasRunning = !!running;
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 </script>
 </body>
 </html>
