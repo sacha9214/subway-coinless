@@ -124,9 +124,21 @@
   $("sound").classList.toggle("on", sound);
   $("sound").href = sound ? "?" : "?sound=1";
 
+  // anything that breaks the game shows under it (and can be reported), instead of a silent freeze
+  const broke = (text) => {
+    const box = $("saved");
+    box.classList.add("bad");
+    box.textContent = "The game hit an error: " + String(text).slice(0, 400);
+  };
+  const consoleError = console.error;
+  console.error = (...a) => { consoleError(...a); const t = a.map(String).join(" "); if (/panick|unreachable|RuntimeError/i.test(t)) broke(t); };
+  addEventListener("error", (e) => { if (/unreachable|RuntimeError|wasm/i.test(String(e.message))) broke(e.message); });
+
   // ---- the game
-  const game = await import("./game.js");
-  game.default().catch((e) => {
+  // the build's stamp on both files: a browser never pairs a new page with an old game from its cache
+  const build = "0ecf2ceb4e31";
+  const game = await import("./game.js?v=" + build);
+  game.default({ module_or_path: "game_bg.wasm?v=" + build }).catch((e) => {
     // the engine leaves its start-up through an exception: that one is not a failure
     if (String(e).includes("Using exceptions for control flow")) return;
     $("status").classList.remove("hidden");
