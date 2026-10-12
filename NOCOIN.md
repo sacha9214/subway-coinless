@@ -8,14 +8,17 @@ The port's simulation is deterministic: a seed and the key presses give the run.
 
 ## Results
 
-Runs with 0 coins, checked by replaying the keys through the game's own driver (`--check`):
+Runs with 0 coins, checked by replaying the keys through the game's own driver (`--check`). The long ones seek tricks; each stops where its search was when it was last saved.
 
-| Seed | Length | Coins | Score | Key presses | Stumbles |
-|---|---|---|---|---|---|
-| 1 | 10 min | 0 | 12494 | 429 | 2 |
-| 2 | 20 min | 0 | 25947 | 934 | 11 |
-| 3 | 20 min | 0 | 25911 | 937 | 6 |
-| 4 | 10 min | 0 | 12697 | 428 | 3 |
+| Seed | Length | Coins | Score | Key presses |
+|---|---|---|---|---|
+| 3 | 1 h 21 min | 0 | 109392 | 12910 |
+| 1 | 50 min | 0 | 67685 | 7981 |
+| 2 | 48 min | 0 | 65154 | 7555 |
+| 5 | 15 min | 0 | 19344 | 2437 |
+| 4 | 13 min | 0 | 17124 | 2022 |
+
+For scale, the best human run on speedrun.com's mobile leaderboard (No Coins, no hoverboard, no keys) lasts 2 h 37 min.
 
 The keys are in `runs/`. A ten-minute run takes about 5 minutes of search on a MacBook Air M3 (longer when it meets a dead end and has to widen).
 
@@ -35,7 +38,9 @@ Options of the search: `--period N` (a key can be pressed every N frames, defaul
 
 ## How it works
 
-Every `period` frames each state the run can be in is played with each key (none, left, right, up, down). States that crashed or touched a coin are dropped. Two heroes at the same place in the same pose have the same future, so of two equal states only the one with fewer stumbles and key presses is kept. Only `cap` states are followed, picked to cover every lane, pose and height. When that loses the way (every state kept fails), the search goes back a few seconds and follows 4, 16, then 64 times as many.
+Every `period` frames each state the run can be in is played with each key (none, left, right, up, down). States that crashed or touched a coin are dropped. Two heroes at the same place in the same pose have the same future, so of two equal states only the one with fewer stumbles and key presses is kept. Only `cap` states are followed, picked to cover every lane, pose and height. When that loses the way (every state kept fails), the search goes back and follows more: 10 s back with 4 times as many, up to 320 s back with 64 times as many and a key every frame.
+
+Among the ways through it keeps the ones with the most style points (jumps over coins, lane changes in the air, dives, train roofs, the gap between two trains), as long as they cost no stumble; `--plain` asks for the fewest key presses instead. The run so far is written every minute, so a long search can be stopped at any time.
 
 ## Changes to the port
 
@@ -47,7 +52,7 @@ The port's test suite (trace parity with the original included) passes with thes
 
 ## The web page
 
-`ss_port/tools/web_build.sh` builds the game as WebAssembly with the four runs inside; the page plays the one picked by `?seed=N`, silent unless `&sound=1`. It needs rustup's `wasm32-unknown-unknown` target, `wasm-bindgen-cli` and `wasm-opt`. File reads go through `src/vfs.rs`, which in the browser serves a pack built into the binary.
+`ss_port/tools/web_build.sh` builds the game as WebAssembly with the longest run of each seed inside; the page plays the one picked by `?seed=N`, silent unless `&sound=1`. It needs rustup's `wasm32-unknown-unknown` target, `wasm-bindgen-cli` and `wasm-opt`. File reads go through `src/vfs.rs`, which in the browser serves a pack built into the binary.
 
 ## Limits
 
