@@ -75,6 +75,9 @@ def main():
         for name, p in entries:
             if name.startswith("/port/runs/"):
                 shutil.copyfile(p, os.path.join(dest, "runs", os.path.basename(name)))
+        # the server side (Vercel functions) and its settings
+        shutil.copytree(os.path.join(PORT, "web/api"), os.path.join(dest, "api"), dirs_exist_ok=True)
+        shutil.copyfile(os.path.join(PORT, "web/vercel.json"), os.path.join(dest, "vercel.json"))
         for f in ("index.html", "runs.json"):
             shutil.copyfile(os.path.join(PORT, "web", f), os.path.join(dest, f))
         print(f"{dest}: page, textures and sounds")

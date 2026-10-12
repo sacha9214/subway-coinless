@@ -133,6 +133,14 @@ mod web {
         let c = &CHALLENGE;
         vec![c[0].load(Relaxed) as f64, c[1].load(Relaxed) as f64 / 100.0, c[2].load(Relaxed) as f64, c[3].load(Relaxed) as f64]
     }
+    /// The run on record: `seed frames keys`, the keys as `frame` + letter
+    /// (u, d, l, r) joined by commas.
+    #[wasm_bindgen]
+    pub fn record() -> String {
+        let r = RECORD.lock().unwrap();
+        let keys: Vec<String> = r.1.iter().map(|(f, k)| format!("{f}{k}")).collect();
+        format!("{} {} {}", r.0, FRAME.load(Relaxed), keys.join(","))
+    }
     /// [frame, first, last].
     #[wasm_bindgen]
     pub fn progress() -> Vec<f64> {
@@ -151,7 +159,8 @@ fn command_line() -> Vec<String> {
         let seed = (js_sys::Date::now() as u64 % 1_000_000).to_string();
         // `?god=1`: nothing but a coin stops the run (to try the coin rule)
         let god = if query.contains("god=1") { "--god" } else { "--mortal" };
-        return ["ss_port", "--vsync", sound, god, "--coinless", "--seed", &seed].map(String::from).to_vec();
+        *ss_port::playback::RECORD.lock().unwrap() = (seed.parse().unwrap_or(0), Vec::new());
+        return ["ss_port", "--vsync", sound, god, "--coinless", "--lock-seed", "--seed", &seed].map(String::from).to_vec();
     }
     #[cfg(not(target_arch = "wasm32"))]
     std::env::args().collect()
@@ -782,6 +791,17 @@ fn read_keys(
     for (code, key) in map {
         if input.just_pressed(code) {
             keys.0 .0.borrow_mut().push(key);
+            // the challenge keeps the run's keys (with the frame they act in)
+            let letter = match key {
+                Key::Up => Some('u'),
+                Key::Down => Some('d'),
+                Key::Left => Some('l'),
+                Key::Right => Some('r'),
+                _ => None,
+            };
+            if let Some(letter) = letter.filter(|_| args.coinless && sim.game.state == ss_port::game::GameState::Running) {
+                ss_port::playback::RECORD.lock().unwrap().1.push((sim.next_frame, letter));
+            }
         }
     }
 }
@@ -857,6 +877,9 @@ fn coinless(sim: &mut Sim) {
         ss_port::hero::player_die(g, "bounce");
     }
     let c = &ss_port::playback::CHALLENGE;
+    if running {
+        ss_port::playback::FRAME.store(g.frame, Relaxed);
+    }
     if g.state == GameState::Running || g.state == GameState::Gameover {
         c[0].store(ss_port::flow::score(g), Relaxed);
         c[1].store((g.stats_time * 100.0) as i64, Relaxed);
@@ -904,7 +927,12 @@ fn step_sim(
     // the seed (the first run of a boot has the seed's layout, however long
     // the title showed)
     if args.lock_seed && !args.scripted() && sim.game.run_starts >= 2 {
-        let seed = args.seed;
+        // (the challenge: a new track every run, each from a fresh boot of
+        // its seed, so that the seed and the keys are the whole run)
+        let seed = if args.coinless { (args.seed.wrapping_mul(1_103_515_245).wrapping_add(12_345) & 0x7fff_ffff) % 1_000_000 } else { args.seed };
+        if args.coinless {
+            *ss_port::playback::RECORD.lock().unwrap() = (seed, Vec::new());
+        }
         rebuild_with_seed(&mut sim, &mut keys, &paths, &mut args, seed);
         info!("[Seed] Restart with seed {seed}");
     }

@@ -64,3 +64,7 @@ pub fn speed() -> f32 {
 /// The coinless challenge (`--coinless`): a coin ends the run. What the
 /// page shows: [score, seconds run, 1 while running, 1 once a coin was touched].
 pub static CHALLENGE: [AtomicI64; 4] = [AtomicI64::new(0), AtomicI64::new(0), AtomicI64::new(0), AtomicI64::new(0)];
+
+/// The challenge's run on record: its seed and the keys pressed (frame,
+/// key letter), so that a saved run can be played again.
+pub static RECORD: std::sync::Mutex<(i32, Vec<(i64, char)>)> = std::sync::Mutex::new((0, Vec::new()));

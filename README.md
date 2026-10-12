@@ -6,6 +6,8 @@ Subway Surfers upside down: the first coin you touch ends the run. Go as far as 
 
 It is the Rust port of the web game by [zebmeow](https://github.com/zebmeow/SubwaySurfers) with one rule added (`--coinless`, in `ss_port/src/main.rs`) and built for the browser (`ss_port/tools/web_build.sh`, page in `ss_port/web/index.html`). Every visit is a new track; the page keeps your best score on your device and starts silent.
 
+The page has a full-screen mode, a timer and an input display. With its server (`ss_port/web/api`, Vercel functions) it also has Google sign-in and a leaderboard of the longest runs; each saved run keeps its seed and key presses. The server needs three settings: `GOOGLE_CLIENT_ID` (an OAuth web client whose authorized origins include the site) and a Redis REST database (`KV_REST_API_URL` and `KV_REST_API_TOKEN`, as set by Vercel's Upstash integration). To try it locally without either: `node ss_port/web/dev-server.js site`.
+
 A bot plays the same challenge for over an hour: [subway-nocoin](https://github.com/sacha9214/subway-nocoin).
 
 Unofficial, non-commercial fan project. Subway Surfers and the game files in `oracle/site` are © SYBO Games / Kiloo. The port's README follows.
