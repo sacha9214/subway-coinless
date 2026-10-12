@@ -171,7 +171,13 @@ fn command_line() -> Vec<String> {
         *ss_port::playback::RECORD.lock().unwrap() = (seed.parse().unwrap_or(0), Vec::new());
         // `?catchup=1`: the game keeps real time in a hidden tab (trials driven from a background tab)
         let catch_up = if query.contains("catchup=1") { "--catch-up" } else { "--no-catch-up" };
-        return ["ss_port", "--vsync", sound, god, catch_up, "--coinless", "--lock-seed", "--seed", &seed].map(String::from).to_vec();
+        // `?menu=me` (or shop, tour): the game opens on that menu (trials)
+        let menu = query.split("menu=").nth(1).map(|v| v.chars().take_while(char::is_ascii_alphabetic).collect::<String>()).unwrap_or_default();
+        let mut line = ["ss_port", "--vsync", sound, god, catch_up, "--coinless", "--lock-seed", "--seed", &seed].map(String::from).to_vec();
+        if !menu.is_empty() {
+            line.extend(["--menu".to_string(), menu]);
+        }
+        return line;
     }
     #[cfg(not(target_arch = "wasm32"))]
     std::env::args().collect()

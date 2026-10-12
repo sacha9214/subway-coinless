@@ -380,7 +380,7 @@ fn camera_pose(f: &Framing) -> Transform {
 
 fn spawn_camera(commands: &mut Commands, target: Handle<Image>) -> Entity {
     use bevy::core_pipeline::tonemapping::{DebandDither, Tonemapping};
-    commands
+    let id = commands
         .spawn((
             StageCamera,
             Camera3d::default(),
@@ -393,7 +393,14 @@ fn spawn_camera(commands: &mut Commands, target: Handle<Image>) -> Entity {
             camera_pose(&JV),
             RenderLayers::layer(LAYER),
         ))
-        .id()
+        .id();
+    // WebGL has no texture view formats, which the 8-bit intermediate
+    // texture of a camera drawing to a non-sRGB image needs: the web build
+    // draws through a float one (as the game's main camera does). The
+    // values written to the image are the same.
+    #[cfg(target_arch = "wasm32")]
+    commands.entity(id).insert(bevy::camera::Hdr);
+    id
 }
 
 fn spawn_shadow(commands: &mut Commands, sim: &Sim, meshes: &mut Assets<Mesh>, mats: &mut Assets<SubwayMaterial>, images: &mut Assets<Image>) -> Entity {
