@@ -21,8 +21,18 @@
   .stage.fill { position: fixed; inset: 0; z-index: 10; margin: 0; border: 0; border-radius: 0; aspect-ratio: auto; }
   #status { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--dim); background: #000; }
   #status.hidden { display: none; }
-  #verdict { position: absolute; left: 50%; top: 12%; transform: translateX(-50%); padding: 0.3em 0.9em; border-radius: 8px; background: rgba(0, 0, 0, 0.78); color: var(--bad); font-weight: 700; font-size: clamp(1rem, 3.4vw, 1.6rem); white-space: nowrap; pointer-events: none; }
-  #verdict[hidden] { display: none; }
+  /* the end of a run, in the game's own look: a white card, chunky letters, a green and a blue button */
+  @font-face { font-family: "Lilita One"; src: url("lilita-one.ttf"); font-display: swap; }
+  #over { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(10, 20, 40, 0.45); }
+  #over[hidden] { display: none; }
+  #over .card { width: min(78%, 21em); padding: 0.9em 1.1em 1.1em; text-align: center; background: #fff; color: #1d4f8f; border: 0.22em solid #fff; outline: 0.16em solid #2f7fd6; border-radius: 1em; box-shadow: 0 0.5em 0 rgba(0, 0, 0, 0.3); font: 400 clamp(0.8rem, 2.6vw, 1.5rem)/1.2 "Lilita One", "Arial Rounded MT Bold", system-ui, sans-serif; }
+  #over h3 { margin: 0 0 0.2em; font: inherit; font-size: 1.25em; color: #1d4f8f; }
+  #over .big { font-size: 2.3em; color: #f08a00; text-shadow: 0 0.06em 0 #b35f00; font-variant-numeric: tabular-nums; }
+  #over p { margin: 0.2em 0 0.7em; font-size: 0.72em; color: #5a6f8c; min-height: 1.2em; }
+  #over button { display: block; width: 100%; margin-top: 0.45em; padding: 0.42em; font: inherit; font-size: 1.05em; color: #fff; border: 0; border-radius: 0.6em; cursor: pointer; text-shadow: 0 0.07em 0 rgba(0, 0, 0, 0.3); }
+  #over .green { background: #5cc12b; box-shadow: 0 0.22em 0 #3b8a17; }
+  #over .blue { background: #3f6fe0; box-shadow: 0 0.22em 0 #2748a3; }
+  #over button:active { transform: translateY(0.12em); box-shadow: none; }
   /* a speedrun's timer and input display, over the game */
   #timer { position: absolute; left: 0; bottom: 0; padding: 0.1em 0.45em; background: rgba(0, 0, 0, 0.72); color: var(--good); font: 700 clamp(1rem, 4.2vw, 2.4rem)/1.2 ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; border-top-right-radius: 8px; pointer-events: none; }
   #pad { position: absolute; right: 1.5%; bottom: 3%; display: grid; grid-template: repeat(2, 1fr) / repeat(3, 1fr); gap: 3px; width: clamp(60px, 13%, 150px); aspect-ratio: 3 / 2; pointer-events: none; }
@@ -61,7 +71,15 @@
 
   <div class="stage" id="stage">
     <canvas id="game" tabindex="0"></canvas>
-    <div id="verdict" hidden>You touched a coin!</div>
+    <div id="over" hidden>
+      <div class="card">
+        <h3 id="why">Run over</h3>
+        <div class="big" id="final">0:00.00</div>
+        <p id="note"></p>
+        <button id="again" class="green">Play again</button>
+        <button id="home" class="blue">Home</button>
+      </div>
+    </div>
     <div id="timer" aria-hidden="true">0:00.00</div>
     <div id="pad" aria-hidden="true"><i data-k="ArrowUp">&#9650;</i><i data-k="ArrowLeft">&#9664;</i><i data-k="ArrowDown">&#9660;</i><i data-k="ArrowRight">&#9654;</i></div>
     <button id="full" title="Full screen (F)">Full screen</button>
@@ -85,7 +103,7 @@
   <h2>How to play</h2>
   <div class="text">
     <p>Click the game, then press <kbd>Space</kbd> or click PLAY. <kbd>←</kbd> <kbd>→</kbd> change lane, <kbd>↑</kbd> jumps, <kbd>↓</kbd> rolls, <kbd>F</kbd> goes full screen. On a phone, swipe.</p>
-    <p>Crashing ends the run as usual. So does a coin: the first one you touch stops you dead. Magnets are a trap. You get one life: there is no revive. After a run, <kbd>Space</kbd> or a tap takes you to the next one.</p>
+    <p>Crashing ends the run as usual. So does a coin: the first one you touch stops you dead. Magnets are a trap. You get one life: there is no revive. After a run, <kbd>Space</kbd> plays again and <kbd>H</kbd> goes back home.</p>
     <p>Sign in with Google to put your time on the leaderboard. Only the name you choose is shown. Each saved run keeps its track and its key presses, so it can be played back.</p>
     <p>A bot plays this challenge too, for over an hour: <a href="https://sacha9214.github.io/subway-nocoin/">watch its runs</a>.</p>
   </div>
@@ -156,7 +174,7 @@
   let from = null;
   stage.addEventListener("touchstart", (e) => { from = [e.touches[0].clientX, e.touches[0].clientY]; }, { passive: true });
   stage.addEventListener("touchend", (e) => {
-    if (!from || e.target === $("full")) return;
+    if (!from || e.target.closest("button, #over")) return;
     const dx = e.changedTouches[0].clientX - from[0], dy = e.changedTouches[0].clientY - from[1];
     from = null;
     if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) press(" ");
@@ -172,7 +190,11 @@
     return data;
   };
   let session = store.get("session"), name = store.get("name");
-  const say = (text, bad) => { $("saved").textContent = text; $("saved").classList.toggle("bad", !!bad); };
+  const say = (text, bad) => {
+    $("saved").textContent = text;
+    $("saved").classList.toggle("bad", !!bad);
+    $("note").textContent = text;
+  };
   const account = () => {
     $("account").hidden = !session;
     $("signin").hidden = !!session;
@@ -273,7 +295,7 @@
     try { c = game.challenge(); } catch { return requestAnimationFrame(tick); }
     const [score, secs, running, coin] = c;
     $("timer").textContent = clock(secs);
-    $("verdict").hidden = !(coin && !running);
+    if (running) $("over").hidden = true;
     if (wasRunning && !running && secs > 0) {
       // the run is over
       if (secs > best) {
@@ -283,13 +305,26 @@
       }
       const [seed, frames, keys] = game.record().split(" ");
       pending = { seed: Number(seed), frames: Number(frames), time: secs, score, keys: keys || "" };
-      if (session) save();
-      else say("Sign in with Google to put " + clock(secs) + " on the leaderboard.");
+      // the game's own end screens are off: this card stands in for them
+      $("why").textContent = coin ? "You touched a coin!" : "You crashed!";
+      $("final").textContent = clock(secs);
+      if (session) { say("Saving…"); save(); }
+      else say("Sign in with Google to put this time on the leaderboard.");
+      setTimeout(() => { $("over").hidden = false; }, 700);
     }
     wasRunning = !!running;
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
+  // the card's buttons: a new run at once, or back to the title screen
+  const next = (again) => { $("over").hidden = true; wasRunning = false; game.next(again); canvas.focus(); };
+  $("again").onclick = () => next(true);
+  $("home").onclick = () => next(false);
+  addEventListener("keydown", (e) => {
+    if ($("over").hidden) return;
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); next(true); }
+    else if (e.key === "h" || e.key === "H" || e.key === "Escape") next(false);
+  }, true);
 </script>
 </body>
 </html>
