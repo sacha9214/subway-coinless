@@ -1,8 +1,14 @@
-# Subway Surfers no-coin planner
+# Coinless Surfers
 
-A search that finds twenty-minute Subway Surfers runs with **0 coins** picked up, on a deterministic Rust port of the web game: see **[NOCOIN.md](NOCOIN.md)**, or **[watch the runs in your browser](https://sacha9214.github.io/subway-nocoin/)**.
+**[Play it in your browser](https://sacha9214.github.io/subway-coinless/)**
 
-The port itself is [zebmeow/SubwaySurfers](https://github.com/zebmeow/SubwaySurfers); its README follows.
+Subway Surfers upside down: the first coin you touch ends the run. Go as far as you can.
+
+It is the Rust port of the web game by [zebmeow](https://github.com/zebmeow/SubwaySurfers) with one rule added (`--coinless`, in `ss_port/src/main.rs`) and built for the browser (`ss_port/tools/web_build.sh`, page in `ss_port/web/index.html`). Every visit is a new track; the page keeps your best score on your device and starts silent.
+
+A bot plays the same challenge for over an hour: [subway-nocoin](https://github.com/sacha9214/subway-nocoin).
+
+Unofficial, non-commercial fan project. Subway Surfers and the game files in `oracle/site` are © SYBO Games / Kiloo. The port's README follows.
 
 ---
 

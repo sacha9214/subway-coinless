@@ -14,6 +14,7 @@
 //!   cargo run --release -- --replay [TRACE]  replay the keydowns of an oracle trace
 //!   cargo run --release -- --replay --screenshot OUT.png --at F
 //!   cargo run --release -- --mute            no sound
+//!   cargo run --release -- --coinless        the challenge: the first coin ends the run
 //!   cargo run --release -- --keys FILE       play a keys file (`frame key` lines: the output of the
 //!                                            no-coin planner, `--bin nocoin`), with its seed
 //!
@@ -55,6 +56,8 @@ struct Args {
     replay: Option<PathBuf>,
     /// `--mute`: no sound.
     mute: bool,
+    /// `--coinless`: the challenge, a coin ends the run.
+    coinless: bool,
     /// `--keys FILE`: play a keys file (the no-coin planner's output).
     keys: Option<PathBuf>,
     screenshot: Option<PathBuf>,
@@ -124,6 +127,12 @@ mod web {
     pub fn seek(frame: f64) {
         SEEK.store(frame as i64, Relaxed);
     }
+    /// [score, seconds run, running, coin touched].
+    #[wasm_bindgen]
+    pub fn challenge() -> Vec<f64> {
+        let c = &CHALLENGE;
+        vec![c[0].load(Relaxed) as f64, c[1].load(Relaxed) as f64 / 100.0, c[2].load(Relaxed) as f64, c[3].load(Relaxed) as f64]
+    }
     /// [frame, first, last].
     #[wasm_bindgen]
     pub fn progress() -> Vec<f64> {
@@ -137,10 +146,12 @@ fn command_line() -> Vec<String> {
     #[cfg(target_arch = "wasm32")]
     {
         let query = web_sys::window().and_then(|w| w.location().search().ok()).unwrap_or_default();
-        let seed: u32 = query.split("seed=").nth(1).map(|v| v.chars().take_while(char::is_ascii_digit).collect::<String>()).and_then(|v| v.parse().ok()).unwrap_or(2);
-        // silent unless the page asks for sound (`?sound=1`)
+        // silent unless the page asks for sound (`?sound=1`); a new level every visit
         let sound = if query.contains("sound=1") { "--sound" } else { "--mute" };
-        return ["ss_port", "--vsync", sound, "--keys", &format!("/port/runs/seed{seed}.keys")].map(String::from).to_vec();
+        let seed = (js_sys::Date::now() as u64 % 1_000_000).to_string();
+        // `?god=1`: nothing but a coin stops the run (to try the coin rule)
+        let god = if query.contains("god=1") { "--god" } else { "--mortal" };
+        return ["ss_port", "--vsync", sound, god, "--coinless", "--seed", &seed].map(String::from).to_vec();
     }
     #[cfg(not(target_arch = "wasm32"))]
     std::env::args().collect()
@@ -162,6 +173,7 @@ fn parse_args(inst: &Install) -> Args {
         replay,
         keys: get("--keys").map(PathBuf::from),
         mute: has("--mute"),
+        coinless: has("--coinless"),
         screenshot: get("--screenshot").map(PathBuf::from).or_else(|| get("--dump-frames").map(|d| PathBuf::from(d).join("last.png"))),
         dump_frames: get("--dump-frames").map(PathBuf::from),
         from: get("--from").and_then(|v| v.parse().ok()).unwrap_or(0),
@@ -472,6 +484,10 @@ fn build_sim_at(paths: &DataPaths, args: &Args, start: bool) -> (Sim, KeyQueue) 
     if !args.scripted() && args.screenshot.is_none() {
         let save = Install::locate().save_file();
         sim.game.flow.user = ss_port::flow::UserData::load(&save);
+        // the challenge starts on the tracks, not in the tutorial
+        if args.coinless {
+            sim.game.flow.user.tutorial = true;
+        }
         // a character this build does not have (a save from a version with
         // extra characters): back to Jake
         let u = &mut sim.game.flow.user;
@@ -829,6 +845,26 @@ fn inject(args: &Args, sim: &mut Sim, keys: &KeyQueue) {
 
 /// A fresh game of `seed`, its run started (the user's progress saved
 /// first and loaded again).
+/// The coinless challenge: the first coin ends the run (and a revive ends
+/// at once: the coin is still counted). The page reads the run's numbers.
+fn coinless(sim: &mut Sim) {
+    use ss_port::game::GameState;
+    use std::sync::atomic::Ordering::Relaxed;
+    let g = &mut sim.game;
+    let running = g.state == GameState::Running && !g.hero.player.dead;
+    if running && g.coins > 0 {
+        g.god = false;
+        ss_port::hero::player_die(g, "bounce");
+    }
+    let c = &ss_port::playback::CHALLENGE;
+    if g.state == GameState::Running || g.state == GameState::Gameover {
+        c[0].store(ss_port::flow::score(g), Relaxed);
+        c[1].store((g.stats_time * 100.0) as i64, Relaxed);
+        c[3].store((g.coins > 0) as i64, Relaxed);
+    }
+    c[2].store(running as i64, Relaxed);
+}
+
 fn rebuild_with_seed(sim: &mut Sim, keys: &mut Keys, paths: &DataPaths, args: &mut Args, seed: i32) {
     sim.game.flow.save_user();
     args.seed = seed;
@@ -894,6 +930,9 @@ fn step_sim(
             sim.step();
             if args.keys.is_some() {
                 sim.forget_log();
+            }
+            if args.coinless {
+                coinless(&mut sim);
             }
         }
     }

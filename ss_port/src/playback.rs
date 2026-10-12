@@ -60,3 +60,7 @@ impl Snapshots {
 pub fn speed() -> f32 {
     if PAUSED.load(Relaxed) { 0.0 } else { SPEED.load(Relaxed) as f32 / 100.0 }
 }
+
+/// The coinless challenge (`--coinless`): a coin ends the run. What the
+/// page shows: [score, seconds run, 1 while running, 1 once a coin was touched].
+pub static CHALLENGE: [AtomicI64; 4] = [AtomicI64::new(0), AtomicI64::new(0), AtomicI64::new(0), AtomicI64::new(0)];

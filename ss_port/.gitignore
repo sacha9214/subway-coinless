@@ -11,3 +11,4 @@
 __pycache__/
 /web/pack.bin
 /web/runs.json
+/target
