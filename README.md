@@ -1,6 +1,6 @@
 # Coinless Surfers
 
-**[Play it in your browser](https://coinless-surfers.vercel.app)**
+**[Play it in your browser](https://sacha9214.github.io/subway-coinless/)**
 
 Subway Surfers upside down: the first coin you touch ends the run. Go as far as you can.
 
