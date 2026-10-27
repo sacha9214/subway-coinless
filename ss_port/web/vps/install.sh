@@ -3,7 +3,8 @@
 # route https://db.rng-infinite.com/coinless/* in Caddy. Run it on the server (asks for the sudo password once):
 #   bash ~/subway-coinless/ss_port/web/vps/install.sh
 # Idempotent. No secret to type: the service reads the database relay's token from its file, and the Google client
-# ID from ~/.config/coinless-api.env (GOOGLE_CLIENT_ID=…).
+# ID from ~/.config/coinless-api.env (GOOGLE_CLIENT_ID=…; until it is there, the page shows no sign-in button).
+# After changing that file: bash deploy.sh (no password).
 set -euo pipefail
 
 DOMAIN="${DOMAIN:-db.rng-infinite.com}"
@@ -14,7 +15,7 @@ ENV_FILE="$HOME/.config/coinless-api.env"
 
 echo "== 1/4 Checks"
 command -v node >/dev/null || { echo "Node.js is missing" >&2; exit 1; }
-grep -q '^GOOGLE_CLIENT_ID=.' "$ENV_FILE" 2>/dev/null || { echo "$ENV_FILE must hold GOOGLE_CLIENT_ID=…" >&2; exit 1; }
+grep -q '^GOOGLE_CLIENT_ID=.' "$ENV_FILE" 2>/dev/null || echo "   (no GOOGLE_CLIENT_ID in $ENV_FILE yet: no sign-in until it is set)"
 systemctl is-active --quiet rng-relay || { echo "The database relay (rng-relay) is not running" >&2; exit 1; }
 sudo test -r /etc/rng-relay/token || { echo "/etc/rng-relay/token is missing" >&2; exit 1; }
 echo "   node $(node -v)"
@@ -33,7 +34,7 @@ Environment=NODE_ENV=production
 Environment=PORT=$PORT
 Environment=COINLESS_REDIS_URL=http://127.0.0.1:7379
 Environment=COINLESS_REDIS_TOKEN_FILE=/etc/rng-relay/token
-EnvironmentFile=$ENV_FILE
+EnvironmentFile=-$ENV_FILE
 ExecStart=$(command -v node) $REPO/ss_port/web/vps/server.js
 Restart=always
 RestartSec=1
