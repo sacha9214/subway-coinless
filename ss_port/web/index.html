@@ -294,8 +294,11 @@
   }, { passive: true });
 
   // ---- the account (a Google sign-in, kept as a session of this site)
+  // GitHub Pages has no server: there, the API is on our VPS (ss_port/web/vps).
+  const apiBase = location.hostname.endsWith("github.io") ? "https://db.rng-infinite.com/coinless/api/" : "/api/";
   const api = async (path, body) => {
-    const res = await fetch("/api/" + path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : undefined);
+    const res = await fetch(apiBase + path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : undefined)
+      .catch(() => { throw new Error("The server did not answer"); });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(data.error || "The server did not answer"), { status: res.status });
     return data;
@@ -366,7 +369,7 @@
       $("signin").className = "dim";
     }
   }).catch(() => {
-    $("signin").textContent = "The leaderboard needs the site's server (it is not on this copy).";
+    $("signin").textContent = "The leaderboard's server does not answer right now. Your best time stays on this device.";
     $("signin").className = "dim";
   });
 
